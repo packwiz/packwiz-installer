@@ -15,4 +15,10 @@ repositories {
     jcenter()
 }
 
+jar {
+    manifest {
+        attributes 'Main-Class': 'link.infra.packwiz.launcher.Main'
+    }
+}
+
 mainClassName = 'link.infra.packwiz.launcher.Main'
