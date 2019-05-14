@@ -1,4 +1,4 @@
-package link.infra.packwiz.launcher;
+package link.infra.packwiz.installer;
 
 import java.awt.BorderLayout;
 import java.awt.Component;

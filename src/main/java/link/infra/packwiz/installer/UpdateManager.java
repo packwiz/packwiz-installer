@@ -1,4 +1,4 @@
-package link.infra.packwiz.launcher;
+package link.infra.packwiz.installer;
 
 public class UpdateManager {
 	Thread updateThread = new Thread(new UpdateThread());
