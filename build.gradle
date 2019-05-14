@@ -1,24 +1,11 @@
 plugins {
-    id 'java'
-    id 'application'
+    id 'java-library'
 }
 
 dependencies {
-    // Use JUnit test framework
-    testImplementation 'junit:junit:4.12'
+    //testImplementation 'junit:junit:4.12'
 }
 
-// In this section you declare where to find the dependencies of your project
 repositories {
-    // Use jcenter for resolving your dependencies.
-    // You can declare any Maven/Ivy/file repository here.
     jcenter()
 }
-
-jar {
-    manifest {
-        attributes 'Main-Class': 'link.infra.packwiz.launcher.Main'
-    }
-}
-
-mainClassName = 'link.infra.packwiz.launcher.Main'
