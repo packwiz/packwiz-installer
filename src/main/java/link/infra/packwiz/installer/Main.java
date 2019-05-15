@@ -1,99 +1,68 @@
 package link.infra.packwiz.installer;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.EventQueue;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
+import javax.swing.JOptionPane;
 
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 public class Main {
 	
-	// TODO: move to seperate file, make usable without GUI
-
-	private JFrame frmPackwizlauncher;
-	private UpdateManager updateManager = new UpdateManager();
-
-	/**
-	 * Launch the application.
-	 */
 	public static void main(String[] args) {
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				try {
-					UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-					Main window = new Main();
-					window.frmPackwizlauncher.setVisible(true);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		});
+		Options options = new Options();
+		options.addOption("g", "no-gui", false, "Don't display a GUI to show update progress");
+		
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = null;
+		try {
+			// Allow any arguments, we're going to exit(1) anyway
+			cmd = parser.parse(options, args, false);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(null, e.getMessage(), "packwiz-installer", JOptionPane.ERROR_MESSAGE);
+			System.exit(1);
+		}
+		if (cmd.hasOption("no-gui")) {
+			System.out.println("This program must be run through packwiz-installer-bootstrap. Use --bootstrap-no-update to disable updating.");
+			System.exit(1);
+		} else {
+			JOptionPane.showMessageDialog(null, "This program must be run through packwiz-installer-bootstrap. Use --bootstrap-no-update to disable updating.", "packwiz-installer", JOptionPane.ERROR_MESSAGE);
+			System.exit(1);
+		}
+	}
+	
+	public Main(String[] args) {
+		Options options = new Options();
+		addNonBootstrapOptions(options);
+		addBootstrapOptions(options);
+		
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = null;
+		try {
+			cmd = parser.parse(options, args);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(null, e.getMessage(), "packwiz-installer", JOptionPane.ERROR_MESSAGE);
+			System.exit(1);
+		}
+		
+		System.out.println("Hello World!");
 	}
 
-	/**
-	 * Create the application.
-	 */
-	public Main() {
-		initialize();
+	// Called by packwiz-installer-bootstrap to set up the help command
+	public static void addNonBootstrapOptions(Options options) {
+		options.addOption("w", "welp", false, "Testing options");
 	}
-
-	/**
-	 * Initialize the contents of the frame.
-	 */
-	private void initialize() {
-		frmPackwizlauncher = new JFrame();
-		frmPackwizlauncher.setTitle("Updating modpack...");
-		frmPackwizlauncher.setBounds(100, 100, 493, 95);
-		frmPackwizlauncher.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frmPackwizlauncher.setLocationRelativeTo(null);
-		
-		JPanel panel = new JPanel();
-		panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-		frmPackwizlauncher.getContentPane().add(panel, BorderLayout.CENTER);
-		panel.setLayout(new BorderLayout(0, 0));
-		
-		JProgressBar progressBar = new JProgressBar();
-		progressBar.setValue(50);
-		panel.add(progressBar, BorderLayout.CENTER);
-		
-		JLabel lblProgresslabel = new JLabel("Loading...");
-		panel.add(lblProgresslabel, BorderLayout.SOUTH);
-		
-		JPanel panel_1 = new JPanel();
-		panel_1.setBorder(new EmptyBorder(0, 5, 0, 5));
-		frmPackwizlauncher.getContentPane().add(panel_1, BorderLayout.EAST);
-		GridBagLayout gbl_panel_1 = new GridBagLayout();
-		panel_1.setLayout(gbl_panel_1);
-		
-		JButton btnOptions = new JButton("Options...");
-		btnOptions.setAlignmentX(Component.CENTER_ALIGNMENT);
-		GridBagConstraints gbc_btnOptions = new GridBagConstraints();
-		gbc_btnOptions.gridx = 0;
-		gbc_btnOptions.gridy = 0;
-		panel_1.add(btnOptions, gbc_btnOptions);
-		
-		JButton btnCancel = new JButton("Cancel");
-		btnCancel.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent arg0) {
-				updateManager.cleanup();
-				frmPackwizlauncher.dispose();
-			}
-		});
-		btnCancel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		GridBagConstraints gbc_btnCancel = new GridBagConstraints();
-		gbc_btnCancel.gridx = 0;
-		gbc_btnCancel.gridy = 1;
-		panel_1.add(btnCancel, gbc_btnCancel);
+	
+	// TODO: link these somehow so they're only defined once?
+	private static void addBootstrapOptions(Options options) {
+		options.addOption(null, "bootstrap-update-url", true, "Github API URL for checking for updates");
+		options.addOption(null, "bootstrap-no-update", false, "Don't update packwiz-installer");
+		options.addOption(null, "bootstrap-main-jar", true, "Location of the packwiz-installer JAR file");
+		options.addOption("g", "no-gui", false, "Don't display a GUI to show update progress");
+		options.addOption("h", "help", false, "Display this message");
 	}
-
+	
 }
