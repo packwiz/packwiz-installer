@@ -10,28 +10,7 @@ import org.apache.commons.cli.ParseException;
 
 public class Main {
 	
-	public static void main(String[] args) {
-		Options options = new Options();
-		options.addOption("g", "no-gui", false, "Don't display a GUI to show update progress");
-		
-		CommandLineParser parser = new DefaultParser();
-		CommandLine cmd = null;
-		try {
-			// Allow any arguments, we're going to exit(1) anyway
-			cmd = parser.parse(options, args, false);
-		} catch (ParseException e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(null, e.getMessage(), "packwiz-installer", JOptionPane.ERROR_MESSAGE);
-			System.exit(1);
-		}
-		if (cmd.hasOption("no-gui")) {
-			System.out.println("This program must be run through packwiz-installer-bootstrap. Use --bootstrap-no-update to disable updating.");
-			System.exit(1);
-		} else {
-			JOptionPane.showMessageDialog(null, "This program must be run through packwiz-installer-bootstrap. Use --bootstrap-no-update to disable updating.", "packwiz-installer", JOptionPane.ERROR_MESSAGE);
-			System.exit(1);
-		}
-	}
+	// Actual main() is in RequiresBootstrap!
 	
 	public Main(String[] args) {
 		Options options = new Options();

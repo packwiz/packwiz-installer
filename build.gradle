@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'application'
     id 'com.github.johnrengelman.shadow' version '5.0.0'
+    id 'com.palantir.git-version' version '0.11.0'
 }
 
 dependencies {
@@ -13,12 +14,14 @@ repositories {
     jcenter()
 }
 
-mainClassName = 'link.infra.packwiz.installer.Main'
+mainClassName = 'link.infra.packwiz.installer.RequiresBootstrap'
+version gitVersion()
 
 jar {
     manifest {
         attributes(
-            'Main-Class': 'link.infra.packwiz.installer.Main'
+            'Main-Class': 'link.infra.packwiz.installer.RequiresBootstrap',
+            'Implementation-Version': project.version
         )
     }
 }
