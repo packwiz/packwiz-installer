@@ -1,6 +1,7 @@
 package link.infra.packwiz.installer;
 
 import javax.swing.JOptionPane;
+import javax.swing.UIManager;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -23,6 +24,11 @@ public class Main {
 			cmd = parser.parse(options, args);
 		} catch (ParseException e) {
 			e.printStackTrace();
+			try {
+				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+			} catch (Exception e1) {
+				// Ignore the exceptions, just continue using the ugly L&F
+			}
 			JOptionPane.showMessageDialog(null, e.getMessage(), "packwiz-installer", JOptionPane.ERROR_MESSAGE);
 			System.exit(1);
 		}
@@ -32,7 +38,7 @@ public class Main {
 
 	// Called by packwiz-installer-bootstrap to set up the help command
 	public static void addNonBootstrapOptions(Options options) {
-		options.addOption("w", "welp", false, "Testing options");
+		//options.addOption("w", "welp", false, "Testing options");
 	}
 	
 	// TODO: link these somehow so they're only defined once?
