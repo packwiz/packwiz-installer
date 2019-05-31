@@ -7,6 +7,7 @@ plugins {
 
 dependencies {
 	implementation 'commons-cli:commons-cli:1.4'
+	implementation 'com.moandjiezana.toml:toml4j:0.7.2'
     //testImplementation 'junit:junit:4.12'
 }
 
@@ -26,9 +27,10 @@ jar {
     }
 }
 
-// Commons CLI is already included in packwiz-installer-bootstrap
+// Commons CLI and Minimal JSON are already included in packwiz-installer-bootstrap
 shadowJar {
    dependencies {
        exclude(dependency('commons-cli:commons-cli:1.4'))
+       exclude(dependency('com.eclipsesource.minimal-json:minimal-json:0.9.5'))
    }
 }
