@@ -1,8 +1,6 @@
 package link.infra.packwiz.installer.request.handlers;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URLConnection;
 

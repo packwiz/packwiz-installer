@@ -16,6 +16,7 @@ public interface IRequestHandler {
 	
 	/**
 	 * Gets the InputStream for a location. Must be threadsafe.
+	 * It is assumed that each location is read only once for the duration of an IRequestHandler.
 	 * @param loc The location to be read
 	 * @return The InputStream containing the data of the file
 	 * @throws Exception

@@ -30,6 +30,10 @@ public abstract class HandlerManager {
 		}
 		return loc;
 	}
+	
+	// TODO: What if files are read multiple times??
+	// Zip handler discards once read, requesting multiple times on other handlers would cause multiple downloads
+	// Caching system? Copy from already downloaded files?
 
 	public static InputStream getFileInputStream(URI loc) throws Exception {
 		for (IRequestHandler handler : handlers) {
