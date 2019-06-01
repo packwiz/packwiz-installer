@@ -1,7 +1,10 @@
 package link.infra.packwiz.installer.request.handlers;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URLConnection;
 
 import link.infra.packwiz.installer.request.IRequestHandler;
 
@@ -14,9 +17,12 @@ public class RequestHandlerHTTP implements IRequestHandler {
 	}
 
 	@Override
-	public InputStream getFileInputStream(URI loc) {
-		// TODO Auto-generated method stub
-		return null;
+	public InputStream getFileInputStream(URI loc) throws Exception {
+		URLConnection conn = loc.toURL().openConnection();
+		conn.addRequestProperty("Accept", "application/octet-stream");
+		// 30 second read timeout
+		conn.setReadTimeout(30 * 1000);
+		return conn.getInputStream();
 	}
 
 }
