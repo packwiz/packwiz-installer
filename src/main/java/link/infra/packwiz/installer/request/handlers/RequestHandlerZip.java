@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -19,14 +20,14 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 		private final ZipInputStream zis;
 		private final Map<URI, byte[]> readFiles = new HashMap<URI, byte[]>();
 		// Write lock implies access to ZipInputStream - only 1 thread must read at a time!
-		final ReentrantReadWriteLock filesLock = new ReentrantReadWriteLock();
+		final ReentrantLock filesLock = new ReentrantLock();
 		private ZipEntry entry;
 
 		public ZipReader(InputStream zip) {
 			zis = new ZipInputStream(zip);
 		}
 		
-		// File write lock must be obtained before calling this function
+		// File lock must be obtained before calling this function
 		private byte[] readCurrFile() throws IOException {
 			byte[] bytes = new byte[(int) entry.getSize()];
 			DataInputStream dis = new DataInputStream(zis);
@@ -34,7 +35,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			return bytes;
 		}
 		
-		// File write lock must be obtained before calling this function
+		// File lock must be obtained before calling this function
 		private byte[] findFile(URI loc) throws IOException, URISyntaxException {
 			while (true) {
 				entry = zis.getNextEntry();
@@ -51,28 +52,16 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 		}
 		
 		public InputStream getFileInputStream(URI loc) throws Exception {
-			filesLock.readLock().lock();
-			byte[] file = readFiles.get(loc);
-			filesLock.readLock().unlock();
+			filesLock.lock();
+			// Assume files are only read once, allow GC by removing
+			byte[] file = readFiles.remove(loc);
 			if (file != null) {
-				// Assume files are only read once, allow GC
-				filesLock.writeLock().lock();
-				readFiles.remove(loc);
-				filesLock.writeLock().unlock();
-				return new ByteArrayInputStream(file);
-			}
-			filesLock.writeLock().lock();
-			// Test again after receiving write lock
-			file = readFiles.get(loc);
-			if (file != null) {
-				// Assume files are only read once, allow GC
-				readFiles.remove(loc);
-				filesLock.writeLock().unlock();
+				filesLock.unlock();
 				return new ByteArrayInputStream(file);
 			}
 			
 			file = findFile(loc);
-			filesLock.writeLock().unlock();
+			filesLock.unlock();
 			if (file != null) {
 				return new ByteArrayInputStream(file);
 			}
