@@ -17,7 +17,9 @@ public class RequestHandlerHTTP implements IRequestHandler {
 	@Override
 	public InputStream getFileInputStream(URI loc) throws Exception {
 		URLConnection conn = loc.toURL().openConnection();
-		conn.addRequestProperty("Accept", "application/octet-stream");
+		// TODO: when do we send specific headers??? should there be a way to signal this?
+		// github *sometimes* requires it, sometimes not!
+		//conn.addRequestProperty("Accept", "application/octet-stream");
 		// 30 second read timeout
 		conn.setReadTimeout(30 * 1000);
 		return conn.getInputStream();
