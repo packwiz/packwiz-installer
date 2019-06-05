@@ -33,12 +33,38 @@ public class Main {
 			System.exit(1);
 		}
 		
-		System.out.println("Hello World!");
+		IUserInterface ui;
+		if (cmd.hasOption("no-gui")) {
+			ui = new CLIHandler();
+		} else {
+			ui = new InstallWindow();
+		}
+		
+		String[] unparsedArgs = cmd.getArgs();
+		if (unparsedArgs.length > 1) {
+			ui.handleExceptionAndExit(new RuntimeException("Too many arguments specified!"));
+		} else if (unparsedArgs.length < 1) {
+			ui.handleExceptionAndExit(new RuntimeException("URI to install from must be specified!"));
+		}
+		
+		String title = cmd.getOptionValue("title");
+		if (title != null) {
+			ui.setTitle(title);
+		}
+		
+		String side = cmd.getOptionValue("side");
+		if (side == null) {
+			side = "client";
+		}
+
+		ui.show();
+		
 	}
 
 	// Called by packwiz-installer-bootstrap to set up the help command
 	public static void addNonBootstrapOptions(Options options) {
-		//options.addOption("w", "welp", false, "Testing options");
+		options.addOption("s", "side", true, "Side to install mods from (client/server, defaults to client)"); // TODO: implement
+		options.addOption(null, "title", true, "Title of the installer window");
 	}
 	
 	// TODO: link these somehow so they're only defined once?
@@ -47,8 +73,8 @@ public class Main {
 		options.addOption(null, "bootstrap-update-token", true, "Github API Access Token, for private repositories");
 		options.addOption(null, "bootstrap-no-update", false, "Don't update packwiz-installer");
 		options.addOption(null, "bootstrap-main-jar", true, "Location of the packwiz-installer JAR file");
-		options.addOption("g", "no-gui", false, "Don't display a GUI to show update progress");
-		options.addOption("h", "help", false, "Display this message");
+		options.addOption("g", "no-gui", false, "Don't display a GUI to show update progress"); // TODO: implement
+		options.addOption("h", "help", false, "Display this message"); // Implemented in packwiz-installer-bootstrap!
 	}
 	
 }

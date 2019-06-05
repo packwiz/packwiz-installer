@@ -9,6 +9,7 @@ import java.awt.GridBagLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.UIManager;
@@ -16,23 +17,19 @@ import javax.swing.border.EmptyBorder;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
-public class InstallWindow {
-	
-	// TODO: move to seperate file, make usable without GUI
+public class InstallWindow implements IUserInterface {
 
 	private JFrame frmPackwizlauncher;
-	private UpdateManager updateManager = new UpdateManager();
+	private String title = "Updating modpack...";
 
-	/**
-	 * Launch the application.
-	 */
-	public static void main(String[] args) {
+	@Override
+	public void show() {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
 					UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-					InstallWindow window = new InstallWindow();
-					window.frmPackwizlauncher.setVisible(true);
+					InstallWindow.this.initialize();
+					InstallWindow.this.frmPackwizlauncher.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -41,18 +38,11 @@ public class InstallWindow {
 	}
 
 	/**
-	 * Create the application.
-	 */
-	public InstallWindow() {
-		initialize();
-	}
-
-	/**
 	 * Initialize the contents of the frame.
 	 */
 	private void initialize() {
 		frmPackwizlauncher = new JFrame();
-		frmPackwizlauncher.setTitle("Updating modpack...");
+		frmPackwizlauncher.setTitle(title);
 		frmPackwizlauncher.setBounds(100, 100, 493, 95);
 		frmPackwizlauncher.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmPackwizlauncher.setLocationRelativeTo(null);
@@ -85,7 +75,7 @@ public class InstallWindow {
 		JButton btnCancel = new JButton("Cancel");
 		btnCancel.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				updateManager.cleanup();
+				//updateManager.cleanup();
 				frmPackwizlauncher.dispose();
 			}
 		});
@@ -94,6 +84,23 @@ public class InstallWindow {
 		gbc_btnCancel.gridx = 0;
 		gbc_btnCancel.gridy = 1;
 		panel_1.add(btnCancel, gbc_btnCancel);
+	}
+
+	@Override
+	public void handleException(Exception e) {
+		JOptionPane.showMessageDialog(null, e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+	}
+	
+	@Override
+	public void setTitle(String title) {
+		this.title = title;
+		if (frmPackwizlauncher != null) {
+			EventQueue.invokeLater(new Runnable() {
+				public void run() {
+					InstallWindow.this.frmPackwizlauncher.setTitle(title);
+				}
+			});
+		}
 	}
 
 }
