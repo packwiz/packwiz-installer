@@ -5,6 +5,10 @@ import java.awt.Component;
 import java.awt.EventQueue;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -14,13 +18,16 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
 
 public class InstallWindow implements IUserInterface {
 
 	private JFrame frmPackwizlauncher;
+	private JLabel lblProgresslabel;
+	private JProgressBar progressBar;
+
 	private String title = "Updating modpack...";
+	private SwingWorkerButWithPublicPublish<Void, InstallProgress> worker;
+	private AtomicBoolean aboutToCrash = new AtomicBoolean();
 
 	@Override
 	public void show() {
@@ -52,11 +59,11 @@ public class InstallWindow implements IUserInterface {
 		frmPackwizlauncher.getContentPane().add(panel, BorderLayout.CENTER);
 		panel.setLayout(new BorderLayout(0, 0));
 		
-		JProgressBar progressBar = new JProgressBar();
-		progressBar.setValue(50);
+		progressBar = new JProgressBar();
+		progressBar.setIndeterminate(true);
 		panel.add(progressBar, BorderLayout.CENTER);
 		
-		JLabel lblProgresslabel = new JLabel("Loading...");
+		lblProgresslabel = new JLabel("Loading...");
 		panel.add(lblProgresslabel, BorderLayout.SOUTH);
 		
 		JPanel panel_1 = new JPanel();
@@ -75,8 +82,13 @@ public class InstallWindow implements IUserInterface {
 		JButton btnCancel = new JButton("Cancel");
 		btnCancel.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				//updateManager.cleanup();
+				if (worker != null) {
+					worker.cancel(true);
+				}
 				frmPackwizlauncher.dispose();
+				// TODO: show window to ask user what to do
+				System.out.println("Update process cancelled by user!");
+				System.exit(1);
 			}
 		});
 		btnCancel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -88,7 +100,23 @@ public class InstallWindow implements IUserInterface {
 
 	@Override
 	public void handleException(Exception e) {
-		JOptionPane.showMessageDialog(null, e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				JOptionPane.showMessageDialog(null, e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+			}
+		});
+	}
+
+	@Override
+	public void handleExceptionAndExit(Exception e) {
+		// Used to prevent the done() handler of SwingWorker executing if the invokeLater hasn't happened yet
+		aboutToCrash.set(true);
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				JOptionPane.showMessageDialog(null, e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+				System.exit(1);
+			}
+		});
 	}
 	
 	@Override
@@ -101,6 +129,59 @@ public class InstallWindow implements IUserInterface {
 				}
 			});
 		}
+	}
+
+	@Override
+	public void submitProgress(InstallProgress progress) {
+		if (worker != null) {
+			worker.publishPublic(progress);
+		}
+	}
+
+	@Override
+	public void executeManager(Runnable task) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				worker = new SwingWorkerButWithPublicPublish<Void, InstallProgress>() {
+
+					@Override
+					protected Void doInBackground() throws Exception {
+						task.run();
+						return null;
+					}
+
+					@Override
+					protected void process(List<InstallProgress> chunks) {
+						// Only process last chunk
+						if (chunks.size() > 0) {
+							InstallProgress prog = chunks.get(chunks.size() - 1);
+							if (prog.hasProgress) {
+								progressBar.setIndeterminate(false);
+								progressBar.setValue(prog.progress);
+								progressBar.setMaximum(prog.progressTotal);
+							} else {
+								progressBar.setIndeterminate(true);
+								progressBar.setValue(0);
+							}
+							lblProgresslabel.setText(prog.message);
+						}
+					}
+
+					@Override
+					protected void done() {
+						if (aboutToCrash.get()) {
+							return;
+						}
+						// TODO: a better way to do this?
+						frmPackwizlauncher.dispose();
+						System.out.println("Finished successfully!");
+						System.exit(0);
+					}
+			
+				};
+				worker.execute();
+			}
+		});
 	}
 
 }
