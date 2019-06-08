@@ -8,8 +8,9 @@ plugins {
 dependencies {
 	implementation 'commons-cli:commons-cli:1.4'
 	implementation 'com.moandjiezana.toml:toml4j:0.7.2'
+    // TODO: Implement tests
     //testImplementation 'junit:junit:4.12'
-    // TODO: add GSON, as toml4j depends on it anyway
+    implementation 'com.google.code.gson:gson:2.8.1'
 }
 
 repositories {
