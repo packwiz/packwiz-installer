@@ -70,10 +70,10 @@ public class RequestHandlerGithub extends RequestHandlerZip {
 	@Override
 	public boolean matchesHandler(URI loc) {
 		String scheme = loc.getScheme();
-		if (!(scheme.equals("http") || scheme.equals("https"))) {
+		if (!("http".equals(scheme) || "https".equals(scheme))) {
 			return false;
 		}
-		if (!loc.getHost().equals("github.com")) {
+		if (!"github.com".equals(loc.getHost())) {
 			return false;
 		}
 		// TODO: sanity checks, support for more github urls

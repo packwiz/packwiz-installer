@@ -3,6 +3,7 @@ package link.infra.packwiz.installer;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Paths;
 
@@ -101,7 +102,11 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Loading pack file..."));
 		HashInputStream packFileStream;
 		try {
-			packFileStream = new HashInputStream(HandlerManager.getFileInputStream(opts.downloadURI));
+			InputStream stream = HandlerManager.getFileInputStream(opts.downloadURI);
+			if (stream == null) {
+				throw new Exception("Pack file URI is invalid, is it supported?");
+			}
+			packFileStream = new HashInputStream(stream);
 		} catch (Exception e) {
 			ui.handleExceptionAndExit(e);
 			return;

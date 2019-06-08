@@ -11,7 +11,7 @@ public class RequestHandlerHTTP implements IRequestHandler {
 	@Override
 	public boolean matchesHandler(URI loc) {
 		String scheme = loc.getScheme();
-		return scheme.equals("http") || scheme.equals("https");
+		return "http".equals(scheme) || "https".equals(scheme);
 	}
 
 	@Override

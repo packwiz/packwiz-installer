@@ -100,20 +100,22 @@ public class InstallWindow implements IUserInterface {
 
 	@Override
 	public void handleException(Exception e) {
+		e.printStackTrace();
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
-				JOptionPane.showMessageDialog(null, e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(null, "An error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
 			}
 		});
 	}
 
 	@Override
 	public void handleExceptionAndExit(Exception e) {
+		e.printStackTrace();
 		// Used to prevent the done() handler of SwingWorker executing if the invokeLater hasn't happened yet
 		aboutToCrash.set(true);
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
-				JOptionPane.showMessageDialog(null, e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(null, "A fatal error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
 				System.exit(1);
 			}
 		});
