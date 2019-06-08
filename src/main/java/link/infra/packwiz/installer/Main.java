@@ -94,6 +94,16 @@ public class Main {
 			uOptions.side = UpdateManager.Options.Side.from(side);
 		}
 
+		String packFolder = cmd.getOptionValue("pack-folder");
+		if (packFolder != null) {
+			uOptions.packFolder = packFolder;
+		}
+
+		String metaFile = cmd.getOptionValue("meta-file");
+		if (metaFile != null) {
+			uOptions.manifestFile = metaFile;
+		}
+
 		try {
 			uOptions.downloadURI = new URI(unparsedArgs[0]);
 		} catch (URISyntaxException e) {
@@ -122,6 +132,8 @@ public class Main {
 	public static void addNonBootstrapOptions(Options options) {
 		options.addOption("s", "side", true, "Side to install mods from (client/server, defaults to client)");
 		options.addOption(null, "title", true, "Title of the installer window");
+		options.addOption(null, "pack-folder", true, "Folder to install the pack to (defaults to the JAR directory)");
+		options.addOption(null, "meta-file", true, "JSON file to store pack metadata, relative to the pack folder (defaults to packwiz.json)");
 	}
 	
 	// TODO: link these somehow so they're only defined once?

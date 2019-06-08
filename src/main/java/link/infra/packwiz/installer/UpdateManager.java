@@ -8,8 +8,9 @@ public class UpdateManager {
 	public final IUserInterface ui;
 
 	public static class Options {
-		public URI downloadURI;
-		public String manifestFile = "packwiz.json";
+		public URI downloadURI = null;
+		public String manifestFile = "packwiz.json"; // TODO: make configurable
+		public String packFolder = ".";
 		public Side side = Side.CLIENT;
 
 		public static enum Side {
@@ -66,23 +67,11 @@ public class UpdateManager {
 	}
 
 	protected void start() {
+		this.checkOptions();
 		ui.submitProgress(new InstallProgress("Loading pack file..."));
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			// Big oof
-		}
-		ui.submitProgress(new InstallProgress("Loading metadata", 1, 2));
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			// Big oof
-		}
-		ui.submitProgress(new InstallProgress("Loading magic", 2, 2));
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			// Big oof
-		}
+	}
+
+	protected void checkOptions() {
+		// TODO: implement
 	}
 }
