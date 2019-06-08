@@ -14,6 +14,10 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import link.infra.packwiz.installer.ui.CLIHandler;
+import link.infra.packwiz.installer.ui.IUserInterface;
+import link.infra.packwiz.installer.ui.InstallWindow;
+
 public class Main {
 
 	// Actual main() is in RequiresBootstrap!

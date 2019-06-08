@@ -2,6 +2,9 @@ package link.infra.packwiz.installer;
 
 import java.net.URI;
 
+import link.infra.packwiz.installer.ui.IUserInterface;
+import link.infra.packwiz.installer.ui.InstallProgress;
+
 public class UpdateManager {
 
 	public final Options opts;

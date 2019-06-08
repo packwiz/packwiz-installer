@@ -1,4 +1,4 @@
-package link.infra.packwiz.installer;
+package link.infra.packwiz.installer.ui;
 
 public class InstallProgress {
 	public final String message;
@@ -6,14 +6,14 @@ public class InstallProgress {
 	public final int progress;
 	public final int progressTotal;
 
-	InstallProgress(String message) {
+	public InstallProgress(String message) {
 		this.message = message;
 		hasProgress = false;
 		progress = 0;
 		progressTotal = 0;
 	}
 
-	InstallProgress(String message, int progress, int progressTotal) {
+	public InstallProgress(String message, int progress, int progressTotal) {
 		this.message = message;
 		hasProgress = true;
 		this.progress = progress;

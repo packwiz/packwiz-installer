@@ -1,4 +1,4 @@
-package link.infra.packwiz.installer;
+package link.infra.packwiz.installer.ui;
 
 public class CLIHandler implements IUserInterface {
 
