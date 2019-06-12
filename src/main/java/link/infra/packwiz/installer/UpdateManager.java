@@ -2,19 +2,21 @@ package link.infra.packwiz.installer;
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Writer;
 import java.net.URI;
 import java.nio.file.Paths;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
+import com.moandjiezana.toml.Toml;
 
-import link.infra.packwiz.installer.metadata.HashInputStream;
-import link.infra.packwiz.installer.metadata.HashTypeAdapter;
 import link.infra.packwiz.installer.metadata.ManifestFile;
+import link.infra.packwiz.installer.metadata.PackFile;
+import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.request.HandlerManager;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallProgress;
@@ -87,7 +89,7 @@ public class UpdateManager {
 		this.checkOptions();
 
 		ui.submitProgress(new InstallProgress("Loading manifest file..."));
-		Gson gson = new GsonBuilder().registerTypeHierarchyAdapter(byte[].class, new HashTypeAdapter()).create();
+		Gson gson = new Gson();
 		ManifestFile manifest;
 		try {
 			manifest = gson.fromJson(new FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
@@ -100,31 +102,47 @@ public class UpdateManager {
 		}
 
 		ui.submitProgress(new InstallProgress("Loading pack file..."));
-		HashInputStream packFileStream;
+		Hash.HashInputStream packFileStream;
 		try {
 			InputStream stream = HandlerManager.getFileInputStream(opts.downloadURI);
 			if (stream == null) {
 				throw new Exception("Pack file URI is invalid, is it supported?");
 			}
-			packFileStream = new HashInputStream(stream);
+			packFileStream = new Hash.HashInputStream(stream, "sha256");
 		} catch (Exception e) {
+			// TODO: still launch the game if updating doesn't work?
 			ui.handleExceptionAndExit(e);
 			return;
 		}
-		// TODO: read file
+		PackFile pf;
 		try {
-			packFileStream.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			pf = new Toml().read(packFileStream).to(PackFile.class);
+		} catch (IllegalStateException e) {
+			ui.handleExceptionAndExit(e);
+			return;
 		}
-		byte[] packFileHash = packFileStream.getHashValue();
+
+		Hash packFileHash = packFileStream.get();
 		if (packFileHash.equals(manifest.packFileHash)) {
+			System.out.println("Hash already up to date!");
 			// WOOO it's already up to date
 			// todo: --force?
 		}
 
-		// TODO: save manifest file
+		System.out.println(pf.name);
+
+
+		// When successfully updated
+		manifest.packFileHash = packFileHash;
+		// update other hashes
+		// TODO: don't do this on failure?
+		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
+			gson.toJson(manifest, writer);
+		} catch (IOException e) {
+			// TODO: add message?
+			ui.handleException(e);
+		}
+		
 	}
 
 	protected void checkOptions() {

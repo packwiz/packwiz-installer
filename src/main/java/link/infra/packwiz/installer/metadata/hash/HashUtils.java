@@ -1,27 +1,7 @@
-package link.infra.packwiz.installer.metadata;
+package link.infra.packwiz.installer.metadata.hash;
 
-import java.lang.reflect.Type;
-
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-
-public class HashTypeAdapter implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
-
-	@Override
-	public JsonElement serialize(byte[] src, Type typeOfSrc, JsonSerializationContext context) {
-		return new JsonPrimitive(printHexBinary(src));
-	}
-
-	@Override
-	public byte[] deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-			throws JsonParseException {
-		return parseHexBinary(json.getAsString());
-	}
+public class HashUtils {
+	private HashUtils() {}
 
 	// Why did Java remove this in 1.9????!
 	public static byte[] parseHexBinary(String s) {
@@ -52,7 +32,7 @@ public class HashTypeAdapter implements JsonSerializer<byte[]>, JsonDeserializer
 		return -1;
 	}
 	
-	private static final char[] hexCode = "0123456789ABCDEF".toCharArray();
+	private static final char[] hexCode = "0123456789abcdef".toCharArray();
 	
 	public static String printHexBinary(byte[] data) {
 		StringBuilder r = new StringBuilder(data.length*2);
