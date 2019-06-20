@@ -111,6 +111,7 @@ public class UpdateManager {
 			packFileStream = new Hash.HashInputStream(stream, "sha256");
 		} catch (Exception e) {
 			// TODO: still launch the game if updating doesn't work?
+			// TODO: ask user if they want to launch the game, exit(1) if they don't
 			ui.handleExceptionAndExit(e);
 			return;
 		}
