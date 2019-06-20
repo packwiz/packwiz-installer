@@ -14,5 +14,8 @@ public class IndexFile {
 		@SerializedName("hash-format")
 		public String hashFormat;
 		public String hash;
+		public String alias;
+		public boolean metafile;
+		public boolean preserve;
 	}
 }

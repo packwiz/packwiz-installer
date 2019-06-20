@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import com.google.gson.Gson;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
 
 import link.infra.packwiz.installer.metadata.ManifestFile;
@@ -33,7 +34,12 @@ public class UpdateManager {
 		public Side side = Side.CLIENT;
 
 		public static enum Side {
-			CLIENT("client"), SERVER("server"), BOTH("both", new Side[] { CLIENT, SERVER });
+			@SerializedName("client")
+			CLIENT("client"),
+			@SerializedName("server")
+			SERVER("server"),
+			@SerializedName("both")
+			BOTH("both", new Side[] { CLIENT, SERVER });
 
 			private final String sideName;
 			private final Side[] depSides;
