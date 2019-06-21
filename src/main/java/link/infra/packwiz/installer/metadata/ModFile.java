@@ -1,14 +1,14 @@
 package link.infra.packwiz.installer.metadata;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.util.Map;
 
 import com.google.gson.annotations.SerializedName;
 
 import link.infra.packwiz.installer.UpdateManager.Options.Side;
-import link.infra.packwiz.installer.metadata.hash.Hash;
+import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
+import okio.Source;
 
 public class ModFile {
 	public String name;
@@ -33,7 +33,7 @@ public class ModFile {
 		public boolean defaultValue;
 	}
 
-	public InputStream getInputStream(URI baseLoc) throws Exception {
+	public Source getSource(URI baseLoc) throws Exception {
 		if (download == null) {
 			throw new Exception("Metadata file doesn't have download");
 		}
@@ -45,10 +45,10 @@ public class ModFile {
 			throw new Exception("Metadata file URI is invalid");
 		}
 		
-		return HandlerManager.getFileInputStream(newLoc);
+		return HandlerManager.getFileSource(newLoc);
 	}
 
-	public Hash getHash() throws Exception {
+	public Object getHash() throws Exception {
 		if (download == null) {
 			throw new Exception("Metadata file doesn't have download");
 		}
@@ -58,7 +58,7 @@ public class ModFile {
 		if (download.hashFormat == null) {
 			throw new Exception("Metadata file doesn't have a hash format");
 		}
-		return new Hash(download.hash, download.hashFormat);
+		return HashUtils.getHash(download.hash, download.hashFormat);
 	}
 
 	public boolean isOptional() {

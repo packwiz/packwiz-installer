@@ -1,12 +1,12 @@
 package link.infra.packwiz.installer.request;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
 import link.infra.packwiz.installer.request.handlers.RequestHandlerGithub;
 import link.infra.packwiz.installer.request.handlers.RequestHandlerHTTP;
+import okio.Source;
 
 public abstract class HandlerManager {
 	
@@ -35,39 +35,20 @@ public abstract class HandlerManager {
 	// Zip handler discards once read, requesting multiple times on other handlers would cause multiple downloads
 	// Caching system? Copy from already downloaded files?
 
-	public static InputStream getFileInputStream(URI loc) throws Exception {
+	public static Source getFileSource(URI loc) throws Exception {
 		for (IRequestHandler handler : handlers) {
 			if (handler.matchesHandler(loc)) {
-				InputStream stream = handler.getFileInputStream(loc);
-				if (stream == null) {
+				Source src = handler.getFileSource(loc);
+				if (src == null) {
 					throw new Exception("Couldn't find URI: " + loc.toString());
 				} else {
-					return stream;
+					return src;
 				}
 			}
 		}
 		// TODO: specialised exception classes??
 		throw new Exception("No handler available for URI: " + loc.toString());
 	}
-	
-	// To enqueue stuff:
-//	private ExecutorService threadPool = Executors.newFixedThreadPool(10);
-//	CompletionService<InputStream> completionService = new ExecutorCompletionService<InputStream>(threadPool);
-//
-//	public Future<InputStream> enqueue(URI loc) {
-//		for (IRequestHandler handler : handlers) {
-//			if (handler.matchesHandler(loc)) {
-//				return completionService.submit(new Callable<InputStream>() {
-//					public InputStream call() {
-//						return handler.getFileInputStream(loc);
-//					}
-//				});
-//			}
-//		}
-//		// TODO: throw error??
-//		return null;
-//	}
-	// Use completionService.take() to get (waits until available) a Future<InputStream>, where you can call .get() and handle exceptions etc
 	
 	// github toml resolution
 	// e.g. https://github.com/comp500/Demagnetize -> demagnetize.toml

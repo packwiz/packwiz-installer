@@ -1,7 +1,8 @@
 package link.infra.packwiz.installer.request;
 
-import java.io.InputStream;
 import java.net.URI;
+
+import okio.Source;
 
 /**
  * IRequestHandler handles requests for locations specified in modpack metadata.
@@ -15,12 +16,12 @@ public interface IRequestHandler {
 	}
 	
 	/**
-	 * Gets the InputStream for a location. Must be threadsafe.
+	 * Gets the Source for a location. Must be threadsafe.
 	 * It is assumed that each location is read only once for the duration of an IRequestHandler.
 	 * @param loc The location to be read
-	 * @return The InputStream containing the data of the file
+	 * @return The Source containing the data of the file
 	 * @throws Exception
 	 */
-	public InputStream getFileInputStream(URI loc) throws Exception;
+	public Source getFileSource(URI loc) throws Exception;
 
 }

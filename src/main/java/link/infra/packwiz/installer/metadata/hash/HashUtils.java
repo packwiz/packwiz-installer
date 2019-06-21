@@ -1,46 +1,27 @@
 package link.infra.packwiz.installer.metadata.hash;
 
-public class HashUtils {
-	private HashUtils() {}
+import java.util.HashMap;
+import java.util.Map;
 
-	// Why did Java remove this in 1.9????!
-	public static byte[] parseHexBinary(String s) {
-		final int len = s.length();
-	
-		// "111" is not a valid hex encoding.
-		if( len%2 != 0 )
-			throw new IllegalArgumentException("hexBinary needs to be even-length: "+s);
-	
-		byte[] out = new byte[len/2];
-	
-		for( int i=0; i<len; i+=2 ) {
-			int h = hexToBin(s.charAt(i  ));
-			int l = hexToBin(s.charAt(i+1));
-			if( h==-1 || l==-1 )
-				throw new IllegalArgumentException("contains illegal character for hexBinary: "+s);
-	
-			out[i/2] = (byte)(h*16+l);
-		}
-	
-		return out;
+public class HashUtils {
+	private static final Map<String, IHasher> hashTypeConversion = new HashMap<String, IHasher>();
+	static {
+		hashTypeConversion.put("sha256", new HasherHashingSource("sha256"));
 	}
-	
-	private static int hexToBin( char ch ) {
-		if( '0'<=ch && ch<='9' )    return ch-'0';
-		if( 'A'<=ch && ch<='F' )    return ch-'A'+10;
-		if( 'a'<=ch && ch<='f' )    return ch-'a'+10;
-		return -1;
-	}
-	
-	private static final char[] hexCode = "0123456789abcdef".toCharArray();
-	
-	public static String printHexBinary(byte[] data) {
-		StringBuilder r = new StringBuilder(data.length*2);
-		for ( byte b : data) {
-			r.append(hexCode[(b >> 4) & 0xF]);
-			r.append(hexCode[(b & 0xF)]);
+
+	public static IHasher getHasher(String type) throws Exception {
+		IHasher hasher = hashTypeConversion.get(type);
+		if (hasher == null) {
+			throw new Exception("Hash type not supported!");
 		}
-		return r.toString();
+		return hasher;
+	}
+
+	public static Object getHash(String type, String value) throws Exception {
+		if (hashTypeConversion.containsKey(type)) {
+			return hashTypeConversion.get(type).getHash(value);
+		}
+		throw new Exception("Hash type not supported!");
 	}
 
 }

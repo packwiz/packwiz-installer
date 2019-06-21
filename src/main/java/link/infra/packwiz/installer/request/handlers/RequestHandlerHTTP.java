@@ -1,10 +1,11 @@
 package link.infra.packwiz.installer.request.handlers;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URLConnection;
 
 import link.infra.packwiz.installer.request.IRequestHandler;
+import okio.Okio;
+import okio.Source;
 
 public class RequestHandlerHTTP implements IRequestHandler {
 
@@ -15,14 +16,14 @@ public class RequestHandlerHTTP implements IRequestHandler {
 	}
 
 	@Override
-	public InputStream getFileInputStream(URI loc) throws Exception {
+	public Source getFileSource(URI loc) throws Exception {
 		URLConnection conn = loc.toURL().openConnection();
 		// TODO: when do we send specific headers??? should there be a way to signal this?
 		// github *sometimes* requires it, sometimes not!
 		//conn.addRequestProperty("Accept", "application/octet-stream");
 		// 30 second read timeout
 		conn.setReadTimeout(30 * 1000);
-		return conn.getInputStream();
+		return Okio.source(conn.getInputStream());
 	}
 
 }

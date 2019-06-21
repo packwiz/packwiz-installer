@@ -29,10 +29,14 @@ import com.moandjiezana.toml.Toml;
 import link.infra.packwiz.installer.metadata.IndexFile;
 import link.infra.packwiz.installer.metadata.ManifestFile;
 import link.infra.packwiz.installer.metadata.PackFile;
-import link.infra.packwiz.installer.metadata.hash.Hash;
+import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
+import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallProgress;
+import okio.Buffer;
+import okio.Okio;
+import okio.Source;
 
 public class UpdateManager {
 
@@ -118,13 +122,10 @@ public class UpdateManager {
 		}
 
 		ui.submitProgress(new InstallProgress("Loading pack file..."));
-		Hash.HashInputStream packFileStream;
+		GeneralHashingSource packFileSource;
 		try {
-			InputStream stream = HandlerManager.getFileInputStream(opts.downloadURI);
-			if (stream == null) {
-				throw new Exception("Pack file URI is invalid, is it supported?");
-			}
-			packFileStream = new Hash.HashInputStream(stream, "sha256");
+			Source src = HandlerManager.getFileSource(opts.downloadURI);
+			packFileSource = HashUtils.getHasher("sha256").getHashingSource(src);
 		} catch (Exception e) {
 			// TODO: still launch the game if updating doesn't work?
 			// TODO: ask user if they want to launch the game, exit(1) if they don't
@@ -133,14 +134,13 @@ public class UpdateManager {
 		}
 		PackFile pf;
 		try {
-			pf = new Toml().read(packFileStream).to(PackFile.class);
+			pf = new Toml().read(Okio.buffer(packFileSource).inputStream()).to(PackFile.class);
 		} catch (IllegalStateException e) {
 			ui.handleExceptionAndExit(e);
 			return;
 		}
 
-		Hash packFileHash = packFileStream.get();
-		if (packFileHash.equals(manifest.packFileHash)) {
+		if (packFileSource.hashIsEqual(manifest.packFileHash)) {
 			System.out.println("Hash already up to date!");
 			// WOOO it's already up to date
 			// todo: --force?
@@ -148,11 +148,15 @@ public class UpdateManager {
 
 		System.out.println(pf.name);
 
-		processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
-				new Hash(pf.index.hash, pf.index.hashFormat), manifest);
+		try {
+			processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
+					HashUtils.getHash(pf.index.hash, pf.index.hashFormat), manifest);
+		} catch (Exception e1) {
+			ui.handleExceptionAndExit(e1);
+		}
 
 		// When successfully updated
-		manifest.packFileHash = packFileHash;
+		manifest.packFileHash = packFileSource.getHash();
 		// update other hashes
 		// TODO: don't do this on failure?
 		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
@@ -168,14 +172,11 @@ public class UpdateManager {
 		// TODO: implement
 	}
 
-	protected void processIndex(URI indexUri, Hash indexHash, ManifestFile manifest) {
-		Hash.HashInputStream indexFileStream;
+	protected void processIndex(URI indexUri, Object indexHash, ManifestFile manifest) {
+		GeneralHashingSource indexFileSource;
 		try {
-			InputStream stream = HandlerManager.getFileInputStream(opts.downloadURI);
-			if (stream == null) {
-				throw new Exception("Index file URI is invalid, is it supported?");
-			}
-			indexFileStream = new Hash.HashInputStream(stream, indexHash);
+			Source src = HandlerManager.getFileSource(opts.downloadURI);
+			indexFileSource = HashUtils.getHasher("sha256").getHashingSource(src);
 		} catch (Exception e) {
 			// TODO: still launch the game if updating doesn't work?
 			// TODO: ask user if they want to launch the game, exit(1) if they don't
@@ -184,13 +185,13 @@ public class UpdateManager {
 		}
 		IndexFile indexFile;
 		try {
-			indexFile = new Toml().read(indexFileStream).to(IndexFile.class);
+			indexFile = new Toml().read(Okio.buffer(indexFileSource).inputStream()).to(IndexFile.class);
 		} catch (IllegalStateException e) {
 			ui.handleExceptionAndExit(e);
 			return;
 		}
 
-		if (!indexFileStream.hashIsEqual()) {
+		if (!indexFileSource.hashIsEqual(indexHash)) {
 			System.out.println("Hash problems!!!!!!!");
 			// TODO: throw exception
 		}
@@ -199,7 +200,13 @@ public class UpdateManager {
 		ConcurrentLinkedQueue<Exception> exceptionQueue = new ConcurrentLinkedQueue<Exception>();
 		List<IndexFile.File> newFiles = indexFile.files.stream().filter(f -> {
 			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
-			Hash newHash = new Hash(f.hash, f.hashFormat);
+			Object newHash;
+			try {
+				newHash = HashUtils.getHash(f.hashFormat, f.hash);
+			} catch (Exception e) {
+				exceptionQueue.add(e);
+				return false;
+			}
 			return cachedFile == null || newHash.equals(cachedFile.hash);
 		}).parallel().map(f -> {
 			try {
@@ -248,15 +255,22 @@ public class UpdateManager {
 					}
 
 					try {
-						InputStream stream = f.getInputStream(indexUri);
-						if (stream == null) {
-							throw new Exception("Failed to open download stream");
+						Source src = f.getSource(indexUri);
+						GeneralHashingSource fileSource = HashUtils.getHasher(f.hashFormat).getHashingSource(src);
+						Buffer data = new Buffer();
+						Okio.buffer(fileSource).readAll(data);
+
+						Object hash;
+						if (f.linkedFile != null) {
+							hash = f.linkedFile.getHash();
+						} else {
+							hash = f.getHash();
 						}
-						Hash.HashInputStream fileStream = new Hash.HashInputStream(stream, f.getHash());
-						// UGHHHHHH if you're reading this point in history
-						// this is the point where i change EVERYTHING to okio because it's 1000000000000 times nicer for this
-						byte[] data = fileStream.readAllBytes();
-						Files.copy(fileStream, Paths.get(opts.packFolder, f.getDestURI().toString()), StandardCopyOption.REPLACE_EXISTING);
+						if (fileSource.hashIsEqual(hash)) {
+							Files.copy(data.inputStream(), Paths.get(opts.packFolder, f.getDestURI().toString()), StandardCopyOption.REPLACE_EXISTING);
+						} else {
+							dc.err = new Exception("Hash invalid!");
+						}
 						
 						return dc;
 					} catch (Exception e) {

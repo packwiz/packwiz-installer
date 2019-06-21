@@ -1,6 +1,5 @@
 package link.infra.packwiz.installer.metadata;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.List;
@@ -8,8 +7,11 @@ import java.util.List;
 import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
 
-import link.infra.packwiz.installer.metadata.hash.Hash;
+import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
+import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
+import okio.Okio;
+import okio.Source;
 
 public class IndexFile {
 	@SerializedName("hash-format")
@@ -38,43 +40,40 @@ public class IndexFile {
 			if (hashFormat == null || hashFormat.length() == 0) {
 				hashFormat = parentIndexFile.hashFormat;
 			}
-			Hash fileHash = new Hash(hash, hashFormat);
+			Object fileHash = HashUtils.getHash(hashFormat, hash);
 			linkedFileURI = HandlerManager.getNewLoc(indexUri, file);
-			InputStream stream = HandlerManager.getFileInputStream(linkedFileURI);
-			if (stream == null) {
-				throw new Exception("Index file URI is invalid, is it supported?");
-			}
-			Hash.HashInputStream fileStream = new Hash.HashInputStream(stream, fileHash);
+			Source src = HandlerManager.getFileSource(linkedFileURI);
+			GeneralHashingSource fileStream = HashUtils.getHasher(hashFormat).getHashingSource(src);
 
-			linkedFile = new Toml().read(fileStream).to(ModFile.class);
-			if (!fileStream.hashIsEqual()) {
+			linkedFile = new Toml().read(Okio.buffer(fileStream).inputStream()).to(ModFile.class);
+			if (!fileStream.hashIsEqual(fileHash)) {
 				throw new Exception("Invalid mod file hash");
 			}
 		}
 
-		public InputStream getInputStream(URI indexUri) throws Exception {
+		public Source getSource(URI indexUri) throws Exception {
 			if (metafile) {
 				if (linkedFile == null) {
 					throw new Exception("Linked file doesn't exist!");
 				}
-				return linkedFile.getInputStream(linkedFileURI);
+				return linkedFile.getSource(linkedFileURI);
 			} else {
 				URI newLoc = HandlerManager.getNewLoc(indexUri, file);
 				if (newLoc == null) {
 					throw new Exception("Index file URI is invalid");
 				}
-				return HandlerManager.getFileInputStream(newLoc);
+				return HandlerManager.getFileSource(newLoc);
 			}
 		}
 
-		public Hash getHash() throws Exception {
+		public Object getHash() throws Exception {
 			if (hash == null) {
 				throw new Exception("Index file doesn't have a hash");
 			}
 			if (hashFormat == null) {
 				throw new Exception("Index file doesn't have a hash format");
 			}
-			return new Hash(hash, hashFormat);
+			return HashUtils.getHash(hashFormat, hash);
 		}
 
 		public String getName() {

@@ -1,9 +1,6 @@
 package link.infra.packwiz.installer.request.handlers;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -13,6 +10,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Source;
 
 public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 	
@@ -33,31 +35,33 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 	private class ZipReader {
 		
 		private final ZipInputStream zis;
-		private final Map<URI, byte[]> readFiles = new HashMap<URI, byte[]>();
+		private final Map<URI, Buffer> readFiles = new HashMap<URI, Buffer>();
 		// Write lock implies access to ZipInputStream - only 1 thread must read at a time!
 		final ReentrantLock filesLock = new ReentrantLock();
 		private ZipEntry entry;
 
-		public ZipReader(InputStream zip) {
-			zis = new ZipInputStream(zip);
+		private final BufferedSource zipSource;
+
+		public ZipReader(Source zip) {
+			zis = new ZipInputStream(Okio.buffer(zip).inputStream());
+			zipSource = Okio.buffer(Okio.source(zis));
 		}
 		
 		// File lock must be obtained before calling this function
-		private byte[] readCurrFile() throws IOException {
-			byte[] bytes = new byte[(int) entry.getSize()];
-			DataInputStream dis = new DataInputStream(zis);
-			dis.readFully(bytes);
-			return bytes;
+		private Buffer readCurrFile() throws IOException {
+			Buffer fileBuffer = new Buffer();
+			zipSource.readFully(fileBuffer, entry.getSize());
+			return fileBuffer;
 		}
 		
 		// File lock must be obtained before calling this function
-		private byte[] findFile(URI loc) throws IOException, URISyntaxException {
+		private Buffer findFile(URI loc) throws IOException, URISyntaxException {
 			while (true) {
 				entry = zis.getNextEntry();
 				if (entry == null) {
 					return null;
 				}
-				byte[] data = readCurrFile();
+				Buffer data = readCurrFile();
 				URI fileLoc = new URI(removeFolder(entry.getName()));
 				if (loc.equals(fileLoc)) {
 					return data;
@@ -67,19 +71,19 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			}
 		}
 		
-		public InputStream getFileInputStream(URI loc) throws Exception {
+		public Source getFileSource(URI loc) throws Exception {
 			filesLock.lock();
 			// Assume files are only read once, allow GC by removing
-			byte[] file = readFiles.remove(loc);
+			Buffer file = readFiles.remove(loc);
 			if (file != null) {
 				filesLock.unlock();
-				return new ByteArrayInputStream(file);
+				return file;
 			}
 			
 			file = findFile(loc);
 			filesLock.unlock();
 			if (file != null) {
-				return new ByteArrayInputStream(file);
+				return file;
 			}
 			return null;
 		}
@@ -99,7 +103,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 					filesLock.unlock();
 					return null;
 				}
-				byte[] data = readCurrFile();
+				Buffer data = readCurrFile();
 				URI fileLoc = new URI(removeFolder(entry.getName()));
 				readFiles.put(fileLoc, data);
 				if (matches.test(fileLoc)) {
@@ -122,7 +126,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 	public abstract boolean matchesHandler(URI loc);
 
 	@Override
-	public InputStream getFileInputStream(URI loc) throws Exception {
+	public Source getFileSource(URI loc) throws Exception {
 		URI zipUri = getZipUri(loc);
 		cacheLock.readLock().lock();
 		ZipReader zr = cache.get(zipUri);
@@ -132,18 +136,18 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			// Recheck, because unlocking read lock allows another thread to modify it
 			zr = cache.get(zipUri);
 			if (zr == null) {
-				InputStream str = super.getFileInputStream(zipUri);
-				if (str == null) {
+				Source src = super.getFileSource(zipUri);
+				if (src == null) {
 					cacheLock.writeLock().unlock();
 					return null;
 				}
-				zr = new ZipReader(str);
+				zr = new ZipReader(src);
 				cache.put(zipUri, zr);
 			}
 			cacheLock.writeLock().unlock();
 		}
 		
-		return zr.getFileInputStream(getLocationInZip(loc));
+		return zr.getFileSource(getLocationInZip(loc));
 	}
 	
 	protected URI findInZip(URI loc, Predicate<URI> matches) throws Exception {
@@ -156,7 +160,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			// Recheck, because unlocking read lock allows another thread to modify it
 			zr = cache.get(zipUri);
 			if (zr == null) {
-				zr = new ZipReader(super.getFileInputStream(zipUri));
+				zr = new ZipReader(super.getFileSource(zipUri));
 				cache.put(zipUri, zr);
 			}
 			cacheLock.writeLock().unlock();

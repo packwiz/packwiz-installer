@@ -11,6 +11,7 @@ dependencies {
     // TODO: Implement tests
     //testImplementation 'junit:junit:4.12'
     implementation 'com.google.code.gson:gson:2.8.1'
+    implementation 'com.squareup.okio:okio:2.2.2'
 }
 
 repositories {
