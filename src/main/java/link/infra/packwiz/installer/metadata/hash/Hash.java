@@ -104,11 +104,11 @@ public class Hash {
 			return output;
 		}
 
-		public boolean isNew() {
-			if (output != null) {
-				return !output.equals(compare);
+		public boolean hashIsEqual() {
+			if (output == null) {
+				get();
 			}
-			return false;
+			return !output.equals(compare);
 		}
 
 	}

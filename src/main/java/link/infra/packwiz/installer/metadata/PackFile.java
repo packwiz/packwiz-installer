@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.metadata;
 
+import java.net.URI;
 import java.util.Map;
 
 import com.google.gson.annotations.SerializedName;
@@ -9,7 +10,7 @@ public class PackFile {
 
 	public IndexFileLoc index;
 	public static class IndexFileLoc {
-		public String file;
+		public URI file;
 		@SerializedName("hash-format")
 		public String hashFormat;
 		public String hash;

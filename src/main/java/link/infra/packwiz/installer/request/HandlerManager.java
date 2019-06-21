@@ -18,10 +18,10 @@ public abstract class HandlerManager {
 	}
 	
 	public static URI getNewLoc(URI base, URI loc) {
+		if (loc == null) return null;
 		if (base != null) {
 			loc = base.resolve(loc);
 		}
-		if (loc == null) return null;
 		
 		for (IRequestHandler handler : handlers) {
 			if (handler.matchesHandler(loc)) {
@@ -38,10 +38,16 @@ public abstract class HandlerManager {
 	public static InputStream getFileInputStream(URI loc) throws Exception {
 		for (IRequestHandler handler : handlers) {
 			if (handler.matchesHandler(loc)) {
-				return handler.getFileInputStream(loc);
+				InputStream stream = handler.getFileInputStream(loc);
+				if (stream == null) {
+					throw new Exception("Couldn't find URI: " + loc.toString());
+				} else {
+					return stream;
+				}
 			}
 		}
-		return null;
+		// TODO: specialised exception classes??
+		throw new Exception("No handler available for URI: " + loc.toString());
 	}
 	
 	// To enqueue stuff:
