@@ -51,6 +51,11 @@ public class HasherHashingSource implements IHasher {
 				return objHash.value == null ? true : false;
 			}
 		}
+
+		@Override
+		public String toString() {
+			return type + ": " + value;
+		}
 	}
 
 	@Override

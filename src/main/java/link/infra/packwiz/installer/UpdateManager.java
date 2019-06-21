@@ -149,7 +149,7 @@ public class UpdateManager {
 
 		try {
 			processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
-					HashUtils.getHash(pf.index.hash, pf.index.hashFormat), manifest);
+					HashUtils.getHash(pf.index.hashFormat, pf.index.hash), pf.index.hashFormat, manifest);
 		} catch (Exception e1) {
 			ui.handleExceptionAndExit(e1);
 		}
@@ -171,11 +171,11 @@ public class UpdateManager {
 		// TODO: implement
 	}
 
-	protected void processIndex(URI indexUri, Object indexHash, ManifestFile manifest) {
+	protected void processIndex(URI indexUri, Object indexHash, String hashFormat, ManifestFile manifest) {
 		GeneralHashingSource indexFileSource;
 		try {
-			Source src = HandlerManager.getFileSource(opts.downloadURI);
-			indexFileSource = HashUtils.getHasher("sha256").getHashingSource(src);
+			Source src = HandlerManager.getFileSource(indexUri);
+			indexFileSource = HashUtils.getHasher(hashFormat).getHashingSource(src);
 		} catch (Exception e) {
 			// TODO: still launch the game if updating doesn't work?
 			// TODO: ask user if they want to launch the game, exit(1) if they don't
@@ -192,6 +192,8 @@ public class UpdateManager {
 
 		if (!indexFileSource.hashIsEqual(indexHash)) {
 			System.out.println("Hash problems!!!!!!!");
+			System.out.println(indexHash);
+			System.out.println(indexFileSource.getHash());
 			// TODO: throw exception
 		}
 
