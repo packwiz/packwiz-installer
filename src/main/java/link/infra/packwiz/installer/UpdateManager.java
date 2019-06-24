@@ -110,17 +110,15 @@ public class UpdateManager {
 
 		ui.submitProgress(new InstallProgress("Loading manifest file..."));
 		Gson gson = new Gson();
-		ManifestFile manifest = null;
+		ManifestFile manifest;
 		try {
 			manifest = gson.fromJson(new FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
 					ManifestFile.class);
-		} catch (FileNotFoundException e) { // Do nothing
+		} catch (FileNotFoundException e) {
+			manifest = new ManifestFile();
 		} catch (JsonSyntaxException | JsonIOException e) {
 			ui.handleExceptionAndExit(e);
 			return;
-		}
-		if (manifest == null) {
-			manifest = new ManifestFile();
 		}
 
 		ui.submitProgress(new InstallProgress("Loading pack file..."));
@@ -142,7 +140,7 @@ public class UpdateManager {
 			return;
 		}
 
-		if (packFileSource.hashIsEqual(manifest.packFileHash)) {
+		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash)) {
 			System.out.println("Hash already up to date!");
 			// WOOO it's already up to date
 			// todo: --force?
