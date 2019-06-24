@@ -7,6 +7,7 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 
 import link.infra.packwiz.installer.UpdateManager.Options.Side;
+import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import okio.Source;
@@ -50,7 +51,7 @@ public class ModFile {
 		return HandlerManager.getFileSource(newLoc);
 	}
 
-	public Object getHash() throws Exception {
+	public Hash getHash() throws Exception {
 		if (download == null) {
 			throw new Exception("Metadata file doesn't have download");
 		}

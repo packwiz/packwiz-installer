@@ -28,7 +28,7 @@ public class Murmur2Hasher implements IHasher {
 		}
 
 		@Override
-		public Object getHash() {
+		public Hash getHash() {
 			if (value == null) {
 				byte[] data = computeNormalizedArray(internalBuffer.readByteArray());
 				value = new Murmur2Hash(Murmur2Lib.hash32(data, data.length, 1));
@@ -54,7 +54,7 @@ public class Murmur2Hasher implements IHasher {
 
 	}
 
-	private class Murmur2Hash {
+	private class Murmur2Hash extends Hash {
 		int value;
 		private Murmur2Hash(String value) {
 			// Parsing as long then casting to int converts values gt int max value but lt uint max value
@@ -79,6 +79,16 @@ public class Murmur2Hasher implements IHasher {
 		public String toString() {
 			return "murmur2: " + value;
 		}
+
+		@Override
+		protected String getStringValue() {
+			return Integer.toString(value);
+		}
+
+		@Override
+		protected String getType() {
+			return "murmur2";
+		}
 	}
 
 	@Override
@@ -87,7 +97,7 @@ public class Murmur2Hasher implements IHasher {
 	}
 
 	@Override
-	public Object getHash(String value) {
+	public Hash getHash(String value) {
 		return new Murmur2Hash(value);
 	}
 	

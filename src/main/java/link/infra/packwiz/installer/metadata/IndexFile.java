@@ -9,6 +9,7 @@ import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
 
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
+import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import okio.Okio;
@@ -42,7 +43,7 @@ public class IndexFile {
 			if (hashFormat == null || hashFormat.length() == 0) {
 				hashFormat = parentIndexFile.hashFormat;
 			}
-			Object fileHash = HashUtils.getHash(hashFormat, hash);
+			Hash fileHash = HashUtils.getHash(hashFormat, hash);
 			linkedFileURI = HandlerManager.getNewLoc(indexUri, file);
 			Source src = HandlerManager.getFileSource(linkedFileURI);
 			GeneralHashingSource fileStream = HashUtils.getHasher(hashFormat).getHashingSource(src);
@@ -68,7 +69,7 @@ public class IndexFile {
 			}
 		}
 
-		public Object getHash() throws Exception {
+		public Hash getHash() throws Exception {
 			if (hash == null) {
 				throw new Exception("Index file doesn't have a hash");
 			}

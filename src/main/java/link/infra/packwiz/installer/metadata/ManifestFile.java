@@ -3,16 +3,18 @@ package link.infra.packwiz.installer.metadata;
 import java.net.URI;
 import java.util.Map;
 
+import link.infra.packwiz.installer.metadata.hash.Hash;
+
 public class ManifestFile {
 	
-	public Object packFileHash = null;
-	public Object indexFileHash = null;
+	public Hash packFileHash = null;
+	public Hash indexFileHash = null;
 	public Map<URI, File> cachedFiles;
 
 	public static class File {
-		public Object hash = null;
+		public Hash hash = null;
 		public boolean isOptional = false;
 		public boolean optionValue = true;
-		public Object linkedFileHash = null;
+		public Hash linkedFileHash = null;
 	}
 }

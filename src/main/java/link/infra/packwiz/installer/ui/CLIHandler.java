@@ -27,6 +27,7 @@ public class CLIHandler implements IUserInterface {
 	@Override
 	public void executeManager(Runnable task) {
 		task.run();
+		System.out.println("Finished successfully!");
 	}
 	
 }

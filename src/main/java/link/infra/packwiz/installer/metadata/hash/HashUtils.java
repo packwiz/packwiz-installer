@@ -18,7 +18,7 @@ public class HashUtils {
 		return hasher;
 	}
 
-	public static Object getHash(String type, String value) throws Exception {
+	public static Hash getHash(String type, String value) throws Exception {
 		if (hashTypeConversion.containsKey(type)) {
 			return hashTypeConversion.get(type).getHash(value);
 		}

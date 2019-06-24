@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
@@ -30,6 +31,7 @@ import link.infra.packwiz.installer.metadata.IndexFile;
 import link.infra.packwiz.installer.metadata.ManifestFile;
 import link.infra.packwiz.installer.metadata.PackFile;
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
+import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import link.infra.packwiz.installer.ui.IUserInterface;
@@ -109,7 +111,7 @@ public class UpdateManager {
 		this.checkOptions();
 
 		ui.submitProgress(new InstallProgress("Loading manifest file..."));
-		Gson gson = new Gson();
+		Gson gson = new GsonBuilder().registerTypeAdapter(Hash.class, new Hash.TypeHandler()).create();
 		ManifestFile manifest;
 		try {
 			manifest = gson.fromJson(new FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
@@ -141,12 +143,12 @@ public class UpdateManager {
 		}
 
 		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash)) {
-			System.out.println("Hash already up to date!");
-			// WOOO it's already up to date
+			System.out.println("Modpack is already up to date!");
 			// todo: --force?
+			return;
 		}
 
-		System.out.println(pf.name);
+		System.out.println("Modpack name: " + pf.name);
 
 		try {
 			processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
@@ -172,7 +174,13 @@ public class UpdateManager {
 		// TODO: implement
 	}
 
-	protected void processIndex(URI indexUri, Object indexHash, String hashFormat, ManifestFile manifest) {
+	protected void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest) {
+		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash)) {
+			System.out.println("Modpack files are already up to date!");
+			return;
+		}
+		manifest.indexFileHash = indexHash;
+
 		GeneralHashingSource indexFileSource;
 		try {
 			Source src = HandlerManager.getFileSource(indexUri);
@@ -192,10 +200,8 @@ public class UpdateManager {
 		}
 
 		if (!indexFileSource.hashIsEqual(indexHash)) {
-			System.out.println("Hash problems!!!!!!!");
-			System.out.println(indexHash);
-			System.out.println(indexFileSource.getHash());
 			// TODO: throw exception
+			return;
 		}
 
 		if (manifest.cachedFiles == null) {
@@ -211,7 +217,7 @@ public class UpdateManager {
 			return f;
 		}).filter(f -> {
 			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
-			Object newHash;
+			Hash newHash;
 			try {
 				newHash = HashUtils.getHash(f.hashFormat, f.hash);
 			} catch (Exception e) {
@@ -266,7 +272,7 @@ public class UpdateManager {
 					}
 
 					try {
-						Object hash;
+						Hash hash;
 						String fileHashFormat;
 						if (f.linkedFile != null) {
 							hash = f.linkedFile.getHash();

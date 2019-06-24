@@ -21,7 +21,7 @@ public class HashingSourceHasher implements IHasher {
 		}
 
 		@Override
-		public Object getHash() {
+		public Hash getHash() {
 			if (value == null) {
 				value = new HashingSourceHash(delegateHashing.hash().hex());
 			}
@@ -33,7 +33,7 @@ public class HashingSourceHasher implements IHasher {
 	// this some funky inner class stuff
 	// each of these classes is specific to the instance of the HasherHashingSource
 	// therefore HashingSourceHashes from different parent instances will be not instanceof each other
-	private class HashingSourceHash {
+	private class HashingSourceHash extends Hash {
 		String value;
 		private HashingSourceHash(String value) {
 			this.value = value;
@@ -56,6 +56,16 @@ public class HashingSourceHasher implements IHasher {
 		public String toString() {
 			return type + ": " + value;
 		}
+
+		@Override
+		protected String getStringValue() {
+			return value;
+		}
+
+		@Override
+		protected String getType() {
+			return type;
+		}
 	}
 
 	@Override
@@ -69,7 +79,7 @@ public class HashingSourceHasher implements IHasher {
 	}
 
 	@Override
-	public Object getHash(String value) {
+	public Hash getHash(String value) {
 		return new HashingSourceHash(value);
 	}
 	

@@ -9,7 +9,7 @@ public abstract class GeneralHashingSource extends ForwardingSource {
 		super(delegate);
 	}
 
-	public abstract Object getHash();
+	public abstract Hash getHash();
 
 	public boolean hashIsEqual(Object compareTo) {
 		return compareTo.equals(getHash());
