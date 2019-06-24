@@ -3,6 +3,7 @@ package link.infra.packwiz.installer.metadata;
 import java.net.URI;
 import java.util.Map;
 
+import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 
 import link.infra.packwiz.installer.UpdateManager.Options.Side;
@@ -17,6 +18,7 @@ public class ModFile {
 
 	public Download download;
 	public static class Download {
+		@JsonAdapter(SpaceSafeURIParser.class)
 		public URI url;
 		@SerializedName("hash-format")
 		public String hashFormat;

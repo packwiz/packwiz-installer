@@ -9,6 +9,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -197,9 +198,18 @@ public class UpdateManager {
 			// TODO: throw exception
 		}
 
+		if (manifest.cachedFiles == null) {
+			manifest.cachedFiles = new HashMap<URI, ManifestFile.File>();
+		}
+
 		// TODO: progress bar
 		ConcurrentLinkedQueue<Exception> exceptionQueue = new ConcurrentLinkedQueue<Exception>();
-		List<IndexFile.File> newFiles = indexFile.files.stream().filter(f -> {
+		List<IndexFile.File> newFiles = indexFile.files.stream().map(f -> {
+			if (f.hashFormat == null || f.hashFormat.length() == 0) {
+				f.hashFormat = indexFile.hashFormat;
+			}
+			return f;
+		}).filter(f -> {
 			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
 			Object newHash;
 			try {
@@ -208,7 +218,7 @@ public class UpdateManager {
 				exceptionQueue.add(e);
 				return false;
 			}
-			return cachedFile == null || newHash.equals(cachedFile.hash);
+			return cachedFile == null || !newHash.equals(cachedFile.hash);
 		}).parallel().map(f -> {
 			try {
 				f.downloadMeta(indexFile, indexUri);
@@ -244,7 +254,7 @@ public class UpdateManager {
 					DownloadCompletion dc = new DownloadCompletion();
 					dc.file = f;
 
-					if (cachedFile.linkedFileHash != null && f.linkedFile != null) {
+					if (cachedFile != null && cachedFile.linkedFileHash != null && f.linkedFile != null) {
 						try {
 							if (cachedFile.linkedFileHash.equals(f.linkedFile.getHash())) {
 								// Do nothing, the file didn't change
@@ -268,8 +278,12 @@ public class UpdateManager {
 							hash = f.getHash();
 						}
 						if (fileSource.hashIsEqual(hash)) {
+							Files.createDirectories(Paths.get(opts.packFolder, f.getDestURI().toString()).getParent());
 							Files.copy(data.inputStream(), Paths.get(opts.packFolder, f.getDestURI().toString()), StandardCopyOption.REPLACE_EXISTING);
 						} else {
+							System.out.println("Invalid hash for " + f.getDestURI().toString());
+							System.out.println("Calculated: " + fileSource.getHash());
+							System.out.println("Expected:   " + hash);
 							dc.err = new Exception("Hash invalid!");
 						}
 						
@@ -313,13 +327,22 @@ public class UpdateManager {
 						ret.err = e;
 					}
 				}
+				manifest.cachedFiles.put(ret.file.file, newCachedFile);
 			}
 			// TODO: show errors properly?
 			String progress;
-			if (ret != null && ret.file != null) {
-				progress = "Downloaded " + ret.file.getName();
-			} else if (ret.err != null) {
-				progress = "Failed to download: " + ret.err.getMessage();
+			if (ret != null) {
+				if (ret.err != null) {
+					if (ret.file != null) {
+						progress = "Failed to download " + ret.file.getName() + ": " + ret.err.getMessage();
+					} else {
+						progress = "Failed to download: " + ret.err.getMessage();
+					}
+				} else if (ret.file != null) {
+					progress = "Downloaded " + ret.file.getName();
+				} else {
+					progress = "Failed to download, unknown reason";
+				}
 			} else {
 				progress = "Failed to download, unknown reason";
 			}

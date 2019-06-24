@@ -4,6 +4,7 @@ import java.net.URI;
 import java.nio.file.Paths;
 import java.util.List;
 
+import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
 
@@ -19,6 +20,7 @@ public class IndexFile {
 	public List<File> files;
 	
 	public static class File {
+		@JsonAdapter(SpaceSafeURIParser.class)
 		public URI file;
 		@SerializedName("hash-format")
 		public String hashFormat;
