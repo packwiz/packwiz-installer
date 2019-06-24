@@ -110,15 +110,17 @@ public class UpdateManager {
 
 		ui.submitProgress(new InstallProgress("Loading manifest file..."));
 		Gson gson = new Gson();
-		ManifestFile manifest;
+		ManifestFile manifest = null;
 		try {
 			manifest = gson.fromJson(new FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
 					ManifestFile.class);
-		} catch (FileNotFoundException e) {
-			manifest = new ManifestFile();
+		} catch (FileNotFoundException e) { // Do nothing
 		} catch (JsonSyntaxException | JsonIOException e) {
 			ui.handleExceptionAndExit(e);
 			return;
+		}
+		if (manifest == null) {
+			manifest = new ManifestFile();
 		}
 
 		ui.submitProgress(new InstallProgress("Loading pack file..."));

@@ -122,7 +122,13 @@ public class Main {
 			ui.executeManager(new Runnable(){
 				@Override
 				public void run() {
-					new UpdateManager(uOptions, ui);
+					try {
+						new UpdateManager(uOptions, ui);
+					} catch (Exception e) {
+						// TODO: better error message?
+						ui.handleExceptionAndExit(e);
+						return;
+					}
 				}
 			});
 		} catch (Exception e) {
