@@ -60,7 +60,7 @@ public class ModFile {
 		if (download.hashFormat == null) {
 			throw new Exception("Metadata file doesn't have a hash format");
 		}
-		return HashUtils.getHash(download.hash, download.hashFormat);
+		return HashUtils.getHash(download.hashFormat, download.hash);
 	}
 
 	public boolean isOptional() {

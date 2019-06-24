@@ -96,7 +96,8 @@ public class IndexFile {
 
 		public URI getDestURI() {
 			if (metafile && linkedFile != null) {
-				return file.resolve(linkedFile.filename);
+				// TODO: URIs are bad
+				return file.resolve(linkedFile.filename.replace(" ", "%20"));
 			} else {
 				return file;
 			}

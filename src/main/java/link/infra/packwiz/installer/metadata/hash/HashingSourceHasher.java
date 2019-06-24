@@ -3,10 +3,10 @@ package link.infra.packwiz.installer.metadata.hash;
 import okio.HashingSource;
 import okio.Source;
 
-public class HasherHashingSource implements IHasher {
+public class HashingSourceHasher implements IHasher {
 	String type;
 
-	public HasherHashingSource(String type) {
+	public HashingSourceHasher(String type) {
 		this.type = type;
 	}
 

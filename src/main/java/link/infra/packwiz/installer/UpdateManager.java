@@ -266,17 +266,21 @@ public class UpdateManager {
 					}
 
 					try {
+						Object hash;
+						String fileHashFormat;
+						if (f.linkedFile != null) {
+							hash = f.linkedFile.getHash();
+							fileHashFormat = f.linkedFile.download.hashFormat;
+						} else {
+							hash = f.getHash();
+							fileHashFormat = f.hashFormat;
+						}
+
 						Source src = f.getSource(indexUri);
-						GeneralHashingSource fileSource = HashUtils.getHasher(f.hashFormat).getHashingSource(src);
+						GeneralHashingSource fileSource = HashUtils.getHasher(fileHashFormat).getHashingSource(src);
 						Buffer data = new Buffer();
 						Okio.buffer(fileSource).readAll(data);
 
-						Object hash;
-						if (f.linkedFile != null) {
-							hash = f.linkedFile.getHash();
-						} else {
-							hash = f.getHash();
-						}
 						if (fileSource.hashIsEqual(hash)) {
 							Files.createDirectories(Paths.get(opts.packFolder, f.getDestURI().toString()).getParent());
 							Files.copy(data.inputStream(), Paths.get(opts.packFolder, f.getDestURI().toString()), StandardCopyOption.REPLACE_EXISTING);
@@ -338,6 +342,7 @@ public class UpdateManager {
 					} else {
 						progress = "Failed to download: " + ret.err.getMessage();
 					}
+					ret.err.printStackTrace();
 				} else if (ret.file != null) {
 					progress = "Downloaded " + ret.file.getName();
 				} else {
