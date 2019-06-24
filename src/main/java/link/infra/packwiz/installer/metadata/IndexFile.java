@@ -26,10 +26,8 @@ public class IndexFile {
 		@SerializedName("hash-format")
 		public String hashFormat;
 		public String hash;
-		// TODO: implement
-		public String alias;
+		public URI alias;
 		public boolean metafile;
-		// TODO: implement
 		public boolean preserve;
 
 		public transient ModFile linkedFile;
@@ -96,6 +94,9 @@ public class IndexFile {
 		}
 
 		public URI getDestURI() {
+			if (alias != null) {
+				return alias;
+			}
 			if (metafile && linkedFile != null) {
 				// TODO: URIs are bad
 				return file.resolve(linkedFile.filename.replace(" ", "%20"));

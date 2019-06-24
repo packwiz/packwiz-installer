@@ -157,10 +157,9 @@ public class UpdateManager {
 			ui.handleExceptionAndExit(e1);
 		}
 
-		// When successfully updated
+		// TODO: update MMC params, java args etc
+
 		manifest.packFileHash = packFileSource.getHash();
-		// update other hashes
-		// TODO: don't do this on failure?
 		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
 			gson.toJson(manifest, writer);
 		} catch (IOException e) {
@@ -269,6 +268,13 @@ public class UpdateManager {
 								return dc;
 							}
 						} catch (Exception e) {}
+					}
+
+					// Don't update files marked with preserve if they already exist on disk
+					if (f.preserve) {
+						if (Files.exists(Paths.get(opts.packFolder, f.getDestURI().toString()))) {
+							return dc;
+						}
 					}
 
 					try {
