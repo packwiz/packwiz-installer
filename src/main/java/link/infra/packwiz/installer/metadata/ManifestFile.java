@@ -16,5 +16,6 @@ public class ManifestFile {
 		public boolean isOptional = false;
 		public boolean optionValue = true;
 		public Hash linkedFileHash = null;
+		public String cachedLocation = null;
 	}
 }

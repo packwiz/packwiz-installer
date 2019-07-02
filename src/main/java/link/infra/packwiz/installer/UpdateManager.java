@@ -7,10 +7,14 @@ import java.io.IOException;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -207,6 +211,31 @@ public class UpdateManager {
 			manifest.cachedFiles = new HashMap<URI, ManifestFile.File>();
 		}
 
+		ui.submitProgress(new InstallProgress("Checking local files..."));
+		List<URI> invalidatedUris = new ArrayList<>();
+		Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry<URI, ManifestFile.File> entry = it.next();
+			if (entry.getValue().cachedLocation != null) {
+				Path filePath = Paths.get(opts.packFolder, entry.getValue().cachedLocation);
+				URI fileUri = entry.getKey();
+
+				if (!indexFile.files.stream().anyMatch(f -> f.file.equals(fileUri))) {
+					// File has been removed from the index
+					try {
+						Files.deleteIfExists(filePath);
+					} catch (IOException e) {
+						// TODO: should this be shown to the user in some way?
+						e.printStackTrace();
+					}
+					it.remove();
+				} else if (!Files.exists(filePath)) {
+					invalidatedUris.add(fileUri);
+				}
+			}
+		}
+		ui.submitProgress(new InstallProgress("Comparing new files..."));
+
 		// TODO: progress bar
 		ConcurrentLinkedQueue<Exception> exceptionQueue = new ConcurrentLinkedQueue<Exception>();
 		List<IndexFile.File> newFiles = indexFile.files.stream().map(f -> {
@@ -215,6 +244,9 @@ public class UpdateManager {
 			}
 			return f;
 		}).filter(f -> {
+			if (invalidatedUris.contains(f.file)) {
+				return true;
+			}
 			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
 			Hash newHash;
 			try {
@@ -343,6 +375,7 @@ public class UpdateManager {
 						ret.err = e;
 					}
 				}
+				newCachedFile.cachedLocation = ret.file.getDestURI().toString();
 				manifest.cachedFiles.put(ret.file.file, newCachedFile);
 			}
 			// TODO: show errors properly?
