@@ -230,6 +230,7 @@ public class UpdateManager {
 					}
 					it.remove();
 				} else if (!Files.exists(filePath)) {
+					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
 					invalidatedUris.add(fileUri);
 				}
 			}
@@ -302,9 +303,11 @@ public class UpdateManager {
 						} catch (Exception e) {}
 					}
 
+					Path destPath = Paths.get(opts.packFolder, f.getDestURI().toString());
+
 					// Don't update files marked with preserve if they already exist on disk
 					if (f.preserve) {
-						if (Files.exists(Paths.get(opts.packFolder, f.getDestURI().toString()))) {
+						if (Files.exists(destPath)) {
 							return dc;
 						}
 					}
@@ -326,13 +329,18 @@ public class UpdateManager {
 						Okio.buffer(fileSource).readAll(data);
 
 						if (fileSource.hashIsEqual(hash)) {
-							Files.createDirectories(Paths.get(opts.packFolder, f.getDestURI().toString()).getParent());
-							Files.copy(data.inputStream(), Paths.get(opts.packFolder, f.getDestURI().toString()), StandardCopyOption.REPLACE_EXISTING);
+							Files.createDirectories(destPath.getParent());
+							Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING);
 						} else {
 							System.out.println("Invalid hash for " + f.getDestURI().toString());
 							System.out.println("Calculated: " + fileSource.getHash());
 							System.out.println("Expected:   " + hash);
 							dc.err = new Exception("Hash invalid!");
+						}
+
+						if (cachedFile != null && !destPath.equals(Paths.get(opts.packFolder, cachedFile.cachedLocation))) {
+							// Delete old file if location changes
+							Files.delete(Paths.get(opts.packFolder, cachedFile.cachedLocation));
 						}
 						
 						return dc;
