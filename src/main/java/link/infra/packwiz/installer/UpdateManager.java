@@ -146,7 +146,22 @@ public class UpdateManager {
 			return;
 		}
 
-		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash)) {
+		ui.submitProgress(new InstallProgress("Checking local files..."));
+
+		List<URI> invalidatedUris = new ArrayList<>();
+		Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry<URI, ManifestFile.File> entry = it.next();
+			if (entry.getValue().cachedLocation != null) {
+				if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
+					URI fileUri = entry.getKey();
+					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
+					invalidatedUris.add(fileUri);
+				}
+			}
+		}
+
+		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash) && invalidatedUris.size() == 0) {
 			System.out.println("Modpack is already up to date!");
 			// todo: --force?
 			return;
@@ -156,7 +171,7 @@ public class UpdateManager {
 
 		try {
 			processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
-					HashUtils.getHash(pf.index.hashFormat, pf.index.hash), pf.index.hashFormat, manifest);
+					HashUtils.getHash(pf.index.hashFormat, pf.index.hash), pf.index.hashFormat, manifest, invalidatedUris);
 		} catch (Exception e1) {
 			ui.handleExceptionAndExit(e1);
 		}
@@ -177,8 +192,8 @@ public class UpdateManager {
 		// TODO: implement
 	}
 
-	protected void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest) {
-		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash)) {
+	protected void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<URI> invalidatedUris) {
+		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.size() == 0) {
 			System.out.println("Modpack files are already up to date!");
 			return;
 		}
@@ -212,26 +227,19 @@ public class UpdateManager {
 		}
 
 		ui.submitProgress(new InstallProgress("Checking local files..."));
-		List<URI> invalidatedUris = new ArrayList<>();
 		Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
 		while (it.hasNext()) {
 			Map.Entry<URI, ManifestFile.File> entry = it.next();
 			if (entry.getValue().cachedLocation != null) {
-				Path filePath = Paths.get(opts.packFolder, entry.getValue().cachedLocation);
-				URI fileUri = entry.getKey();
-
-				if (!indexFile.files.stream().anyMatch(f -> f.file.equals(fileUri))) {
+				if (!indexFile.files.stream().anyMatch(f -> f.file.equals(entry.getKey()))) {
 					// File has been removed from the index
 					try {
-						Files.deleteIfExists(filePath);
+						Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().cachedLocation));
 					} catch (IOException e) {
 						// TODO: should this be shown to the user in some way?
 						e.printStackTrace();
 					}
 					it.remove();
-				} else if (!Files.exists(filePath)) {
-					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
-					invalidatedUris.add(fileUri);
 				}
 			}
 		}
