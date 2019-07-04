@@ -149,14 +149,16 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Checking local files..."));
 
 		List<URI> invalidatedUris = new ArrayList<>();
-		Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
-		while (it.hasNext()) {
-			Map.Entry<URI, ManifestFile.File> entry = it.next();
-			if (entry.getValue().cachedLocation != null) {
-				if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
-					URI fileUri = entry.getKey();
-					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
-					invalidatedUris.add(fileUri);
+		if (manifest.cachedFiles != null) {
+			Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
+			while (it.hasNext()) {
+				Map.Entry<URI, ManifestFile.File> entry = it.next();
+				if (entry.getValue().cachedLocation != null) {
+					if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
+						URI fileUri = entry.getKey();
+						System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
+						invalidatedUris.add(fileUri);
+					}
 				}
 			}
 		}
