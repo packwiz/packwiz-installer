@@ -1,22 +1,14 @@
 package link.infra.packwiz.installer;
 
-import java.awt.EventQueue;
-import java.awt.GraphicsEnvironment;
-import java.net.URI;
-import java.net.URISyntaxException;
-
-import javax.swing.JOptionPane;
-import javax.swing.UIManager;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-
 import link.infra.packwiz.installer.ui.CLIHandler;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallWindow;
+import org.apache.commons.cli.*;
+
+import javax.swing.*;
+import java.awt.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 public class Main {
 
@@ -28,13 +20,11 @@ public class Main {
 			this.startup(args);
 		} catch (Exception e) {
 			e.printStackTrace();
-			EventQueue.invokeLater(new Runnable() {
-				public void run() {
-					JOptionPane.showMessageDialog(null,
-							"A fatal error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(),
-							"packwiz-installer", JOptionPane.ERROR_MESSAGE);
-					System.exit(1);
-				}
+			EventQueue.invokeLater(() -> {
+				JOptionPane.showMessageDialog(null,
+						"A fatal error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(),
+						"packwiz-installer", JOptionPane.ERROR_MESSAGE);
+				System.exit(1);
 			});
 			// In case the eventqueue is broken, exit after 1 minute
 			try {
@@ -127,14 +117,12 @@ public class Main {
 					} catch (Exception e) {
 						// TODO: better error message?
 						ui.handleExceptionAndExit(e);
-						return;
 					}
 				}
 			});
 		} catch (Exception e) {
 			// TODO: better error message?
 			ui.handleExceptionAndExit(e);
-			return;
 		}
 	}
 

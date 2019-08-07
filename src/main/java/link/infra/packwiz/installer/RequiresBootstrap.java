@@ -1,9 +1,7 @@
 package link.infra.packwiz.installer;
 
+import javax.swing.*;
 import java.util.Arrays;
-
-import javax.swing.JOptionPane;
-import javax.swing.UIManager;
 
 public class RequiresBootstrap {
 
@@ -15,10 +13,10 @@ public class RequiresBootstrap {
 		if (Arrays.stream(args).map(str -> {
 			if (str == null) return "";
 			if (str.startsWith("--")) {
-				return str.substring(2, str.length());
+				return str.substring(2);
 			}
 			if (str.startsWith("-")) {
-				return str.substring(1, str.length());
+				return str.substring(1);
 			}
 			return "";
 		}).anyMatch(str -> str.equals("g") || str.equals("no-gui"))) {

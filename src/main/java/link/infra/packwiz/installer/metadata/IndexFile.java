@@ -1,19 +1,18 @@
 package link.infra.packwiz.installer.metadata;
 
-import java.net.URI;
-import java.nio.file.Paths;
-import java.util.List;
-
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
-
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import okio.Okio;
 import okio.Source;
+
+import java.net.URI;
+import java.nio.file.Paths;
+import java.util.List;
 
 public class IndexFile {
 	@SerializedName("hash-format")
@@ -69,6 +68,7 @@ public class IndexFile {
 
 		public Hash getHash() throws Exception {
 			if (hash == null) {
+				// TODO: should these be more specific exceptions (e.g. IndexFileException?!)
 				throw new Exception("Index file doesn't have a hash");
 			}
 			if (hashFormat == null) {
@@ -90,7 +90,8 @@ public class IndexFile {
 			if (file != null) {
 				return Paths.get(file.getPath()).getFileName().toString();
 			}
-			return file.getPath();
+			// TODO: throw some kind of exception?
+			return "Invalid file";
 		}
 
 		public URI getDestURI() {

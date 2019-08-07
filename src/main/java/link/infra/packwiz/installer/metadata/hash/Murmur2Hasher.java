@@ -1,9 +1,9 @@
 package link.infra.packwiz.installer.metadata.hash;
 
-import java.io.IOException;
-
 import okio.Buffer;
 import okio.Source;
+
+import java.io.IOException;
 
 public class Murmur2Hasher implements IHasher {
 	private class Murmur2GeneralHashingSource extends GeneralHashingSource {
@@ -40,8 +40,7 @@ public class Murmur2Hasher implements IHasher {
 		private byte[] computeNormalizedArray(byte[] input) {
 			byte[] output = new byte[input.length];
 			int num = 0;
-			for (int i = 0; i < input.length; i++) {
-				byte b = input[i];
+			for (byte b : input) {
 				if (!(b == 9 || b == 10 || b == 13 || b == 32)) {
 					output[num] = b;
 					num++;
@@ -54,7 +53,7 @@ public class Murmur2Hasher implements IHasher {
 
 	}
 
-	private class Murmur2Hash extends Hash {
+	private static class Murmur2Hash extends Hash {
 		int value;
 		private Murmur2Hash(String value) {
 			// Parsing as long then casting to int converts values gt int max value but lt uint max value

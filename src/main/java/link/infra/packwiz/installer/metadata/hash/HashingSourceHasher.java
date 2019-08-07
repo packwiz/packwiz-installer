@@ -48,7 +48,7 @@ public class HashingSourceHasher implements IHasher {
 			if (value != null) {
 				return value.equals(objHash.value);
 			} else {
-				return objHash.value == null ? true : false;
+				return objHash.value == null;
 			}
 		}
 

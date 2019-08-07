@@ -1,17 +1,17 @@
 package link.infra.packwiz.installer.request;
 
-import java.net.URI;
-
 import okio.Source;
+
+import java.net.URI;
 
 /**
  * IRequestHandler handles requests for locations specified in modpack metadata.
  */
 public interface IRequestHandler {
 	
-	public boolean matchesHandler(URI loc);
+	boolean matchesHandler(URI loc);
 	
-	public default URI getNewLoc(URI loc) {
+	default URI getNewLoc(URI loc) {
 		return loc;
 	}
 	
@@ -22,6 +22,6 @@ public interface IRequestHandler {
 	 * @return The Source containing the data of the file
 	 * @throws Exception
 	 */
-	public Source getFileSource(URI loc) throws Exception;
+	Source getFileSource(URI loc) throws Exception;
 
 }

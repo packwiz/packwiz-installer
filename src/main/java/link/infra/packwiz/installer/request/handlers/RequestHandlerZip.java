@@ -1,5 +1,10 @@
 package link.infra.packwiz.installer.request.handlers;
 
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Source;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -11,14 +16,9 @@ import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import okio.Buffer;
-import okio.BufferedSource;
-import okio.Okio;
-import okio.Source;
-
 public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 	
-	protected final boolean modeHasFolder;
+	private final boolean modeHasFolder;
 	
 	public RequestHandlerZip(boolean modeHasFolder) {
 		this.modeHasFolder = modeHasFolder;
@@ -35,14 +35,14 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 	private class ZipReader {
 		
 		private final ZipInputStream zis;
-		private final Map<URI, Buffer> readFiles = new HashMap<URI, Buffer>();
+		private final Map<URI, Buffer> readFiles = new HashMap<>();
 		// Write lock implies access to ZipInputStream - only 1 thread must read at a time!
 		final ReentrantLock filesLock = new ReentrantLock();
 		private ZipEntry entry;
 
 		private final BufferedSource zipSource;
 
-		public ZipReader(Source zip) {
+		ZipReader(Source zip) {
 			zis = new ZipInputStream(Okio.buffer(zip).inputStream());
 			zipSource = Okio.buffer(Okio.source(zis));
 		}
@@ -71,7 +71,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			}
 		}
 		
-		public Source getFileSource(URI loc) throws Exception {
+		Source getFileSource(URI loc) throws Exception {
 			filesLock.lock();
 			// Assume files are only read once, allow GC by removing
 			Buffer file = readFiles.remove(loc);
@@ -82,13 +82,10 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			
 			file = findFile(loc);
 			filesLock.unlock();
-			if (file != null) {
-				return file;
-			}
-			return null;
+			return file;
 		}
 		
-		public URI findInZip(Predicate<URI> matches) throws Exception {
+		URI findInZip(Predicate<URI> matches) throws Exception {
 			filesLock.lock();
 			for (URI file : readFiles.keySet()) {
 				if (matches.test(file)) {
@@ -115,8 +112,8 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 		
 	}
 	
-	private final Map<URI, ZipReader> cache = new HashMap<URI, ZipReader>();
-	final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock();
+	private final Map<URI, ZipReader> cache = new HashMap<>();
+	private final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock();
 	
 	protected abstract URI getZipUri(URI loc) throws Exception;
 	

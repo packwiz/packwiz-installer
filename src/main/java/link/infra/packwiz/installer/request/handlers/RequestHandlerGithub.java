@@ -19,14 +19,17 @@ public class RequestHandlerGithub extends RequestHandlerZip {
 	}
 	
 	// TODO: is caching really needed, if HTTPURLConnection follows redirects correctly?
-	private Map<String, URI> zipUriMap = new HashMap<String, URI>();
-	final ReentrantReadWriteLock zipUriLock = new ReentrantReadWriteLock();
+	private Map<String, URI> zipUriMap = new HashMap<>();
+	private final ReentrantReadWriteLock zipUriLock = new ReentrantReadWriteLock();
 	private static Pattern repoMatcherPattern = Pattern.compile("/([\\w.-]+/[\\w.-]+).*");
 	
 	private String getRepoName(URI loc) {
 		Matcher matcher = repoMatcherPattern.matcher(loc.getPath());
-		matcher.matches();
-		return matcher.group(1);
+		if (matcher.matches()) {
+			return matcher.group(1);
+		} else {
+			return null;
+		}
 	}
 
 	@Override
@@ -57,8 +60,11 @@ public class RequestHandlerGithub extends RequestHandlerZip {
 	
 	private String getBranch(URI loc) {
 		Matcher matcher = branchMatcherPattern.matcher(loc.getPath());
-		matcher.matches();
-		return matcher.group(1);
+		if (matcher.matches()) {
+			return matcher.group(1);
+		} else {
+			return null;
+		}
 	}
 
 	@Override

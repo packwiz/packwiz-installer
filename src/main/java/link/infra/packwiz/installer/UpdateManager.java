@@ -1,36 +1,11 @@
 package link.infra.packwiz.installer;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
-
 import link.infra.packwiz.installer.metadata.IndexFile;
 import link.infra.packwiz.installer.metadata.ManifestFile;
 import link.infra.packwiz.installer.metadata.PackFile;
@@ -43,6 +18,16 @@ import link.infra.packwiz.installer.ui.InstallProgress;
 import okio.Buffer;
 import okio.Okio;
 import okio.Source;
+
+import java.io.*;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class UpdateManager {
 
@@ -84,8 +69,8 @@ public class UpdateManager {
 					return true;
 				}
 				if (this.depSides != null) {
-					for (int i = 0; i < this.depSides.length; i++) {
-						if (this.depSides[i].equals(tSide)) {
+					for (Side depSide : this.depSides) {
+						if (depSide.equals(tSide)) {
 							return true;
 						}
 					}
@@ -96,7 +81,7 @@ public class UpdateManager {
 			public static Side from(String name) {
 				String lowerName = name.toLowerCase();
 				for (Side side : Side.values()) {
-					if (side.sideName == lowerName) {
+					if (side.sideName.equals(lowerName)) {
 						return side;
 					}
 				}
@@ -150,9 +135,7 @@ public class UpdateManager {
 
 		List<URI> invalidatedUris = new ArrayList<>();
 		if (manifest.cachedFiles != null) {
-			Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
-			while (it.hasNext()) {
-				Map.Entry<URI, ManifestFile.File> entry = it.next();
+			for (Map.Entry<URI, ManifestFile.File> entry : manifest.cachedFiles.entrySet()) {
 				if (entry.getValue().cachedLocation != null) {
 					if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
 						URI fileUri = entry.getKey();
@@ -225,7 +208,7 @@ public class UpdateManager {
 		}
 
 		if (manifest.cachedFiles == null) {
-			manifest.cachedFiles = new HashMap<URI, ManifestFile.File>();
+			manifest.cachedFiles = new HashMap<>();
 		}
 
 		ui.submitProgress(new InstallProgress("Checking local files..."));
@@ -233,7 +216,7 @@ public class UpdateManager {
 		while (it.hasNext()) {
 			Map.Entry<URI, ManifestFile.File> entry = it.next();
 			if (entry.getValue().cachedLocation != null) {
-				if (!indexFile.files.stream().anyMatch(f -> f.file.equals(entry.getKey()))) {
+				if (indexFile.files.stream().noneMatch(f -> f.file.equals(entry.getKey()))) {
 					// File has been removed from the index
 					try {
 						Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().cachedLocation));
@@ -248,12 +231,11 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Comparing new files..."));
 
 		// TODO: progress bar
-		ConcurrentLinkedQueue<Exception> exceptionQueue = new ConcurrentLinkedQueue<Exception>();
-		List<IndexFile.File> newFiles = indexFile.files.stream().map(f -> {
+		ConcurrentLinkedQueue<Exception> exceptionQueue = new ConcurrentLinkedQueue<>();
+		List<IndexFile.File> newFiles = indexFile.files.stream().peek(f -> {
 			if (f.hashFormat == null || f.hashFormat.length() == 0) {
 				f.hashFormat = indexFile.hashFormat;
 			}
-			return f;
 		}).filter(f -> {
 			if (invalidatedUris.contains(f.file)) {
 				return true;
@@ -267,13 +249,12 @@ public class UpdateManager {
 				return false;
 			}
 			return cachedFile == null || !newHash.equals(cachedFile.hash);
-		}).parallel().map(f -> {
+		}).parallel().peek(f -> {
 			try {
 				f.downloadMeta(indexFile, indexUri);
 			} catch (Exception e) {
 				exceptionQueue.add(e);
 			}
-			return f;
 		}).collect(Collectors.toList());
 
 		for (Exception e : exceptionQueue) {
@@ -284,80 +265,77 @@ public class UpdateManager {
 		// TODO: present options
 		// TODO: all options should be presented, not just new files!!!!!!!
 		// and options should be readded to newFiles after option -> true
-		newFiles.stream().filter(f -> f.linkedFile != null).filter(f -> f.linkedFile.option != null).map(f -> {
-			return "option: " + (f.linkedFile.option.description == null ? "null" : f.linkedFile.option.description);
-		}).forEachOrdered(desc -> {
+		newFiles.stream().filter(f -> f.linkedFile != null).filter(f -> f.linkedFile.option != null).map(f ->
+			"option: " + (f.linkedFile.option.description == null ? "null" : f.linkedFile.option.description)
+		).forEachOrdered(desc -> {
 			System.out.println(desc);
 		});
 
 		// TODO: different thread pool type?
 		ExecutorService threadPool = Executors.newFixedThreadPool(10);
-		CompletionService<DownloadCompletion> completionService = new ExecutorCompletionService<DownloadCompletion>(
-				threadPool);
+		CompletionService<DownloadCompletion> completionService = new ExecutorCompletionService<>(threadPool);
 
 		for (IndexFile.File f : newFiles) {
 			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
-			completionService.submit(new Callable<DownloadCompletion>() {
-				public DownloadCompletion call() {
-					DownloadCompletion dc = new DownloadCompletion();
-					dc.file = f;
+			completionService.submit(() -> {
+				DownloadCompletion dc = new DownloadCompletion();
+				dc.file = f;
 
-					if (cachedFile != null && cachedFile.linkedFileHash != null && f.linkedFile != null) {
-						try {
-							if (cachedFile.linkedFileHash.equals(f.linkedFile.getHash())) {
-								// Do nothing, the file didn't change
-								// TODO: but if the hash of the metafile changed, what did change?????
-								// should this be checked somehow??
-								return dc;
-							}
-						} catch (Exception e) {}
-					}
-
-					Path destPath = Paths.get(opts.packFolder, f.getDestURI().toString());
-
-					// Don't update files marked with preserve if they already exist on disk
-					if (f.preserve) {
-						if (Files.exists(destPath)) {
+				if (cachedFile != null && cachedFile.linkedFileHash != null && f.linkedFile != null) {
+					try {
+						if (cachedFile.linkedFileHash.equals(f.linkedFile.getHash())) {
+							// Do nothing, the file didn't change
+							// TODO: but if the hash of the metafile changed, what did change?????
+							// should this be checked somehow??
 							return dc;
 						}
-					}
+					} catch (Exception ignored) {}
+				}
 
-					try {
-						Hash hash;
-						String fileHashFormat;
-						if (f.linkedFile != null) {
-							hash = f.linkedFile.getHash();
-							fileHashFormat = f.linkedFile.download.hashFormat;
-						} else {
-							hash = f.getHash();
-							fileHashFormat = f.hashFormat;
-						}
+				Path destPath = Paths.get(opts.packFolder, f.getDestURI().toString());
 
-						Source src = f.getSource(indexUri);
-						GeneralHashingSource fileSource = HashUtils.getHasher(fileHashFormat).getHashingSource(src);
-						Buffer data = new Buffer();
-						Okio.buffer(fileSource).readAll(data);
-
-						if (fileSource.hashIsEqual(hash)) {
-							Files.createDirectories(destPath.getParent());
-							Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING);
-						} else {
-							System.out.println("Invalid hash for " + f.getDestURI().toString());
-							System.out.println("Calculated: " + fileSource.getHash());
-							System.out.println("Expected:   " + hash);
-							dc.err = new Exception("Hash invalid!");
-						}
-
-						if (cachedFile != null && !destPath.equals(Paths.get(opts.packFolder, cachedFile.cachedLocation))) {
-							// Delete old file if location changes
-							Files.delete(Paths.get(opts.packFolder, cachedFile.cachedLocation));
-						}
-						
-						return dc;
-					} catch (Exception e) {
-						dc.err = e;
+				// Don't update files marked with preserve if they already exist on disk
+				if (f.preserve) {
+					if (Files.exists(destPath)) {
 						return dc;
 					}
+				}
+
+				try {
+					Hash hash;
+					String fileHashFormat;
+					if (f.linkedFile != null) {
+						hash = f.linkedFile.getHash();
+						fileHashFormat = f.linkedFile.download.hashFormat;
+					} else {
+						hash = f.getHash();
+						fileHashFormat = f.hashFormat;
+					}
+
+					Source src = f.getSource(indexUri);
+					GeneralHashingSource fileSource = HashUtils.getHasher(fileHashFormat).getHashingSource(src);
+					Buffer data = new Buffer();
+					Okio.buffer(fileSource).readAll(data);
+
+					if (fileSource.hashIsEqual(hash)) {
+						Files.createDirectories(destPath.getParent());
+						Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING);
+					} else {
+						System.out.println("Invalid hash for " + f.getDestURI().toString());
+						System.out.println("Calculated: " + fileSource.getHash());
+						System.out.println("Expected:   " + hash);
+						dc.err = new Exception("Hash invalid!");
+					}
+
+					if (cachedFile != null && !destPath.equals(Paths.get(opts.packFolder, cachedFile.cachedLocation))) {
+						// Delete old file if location changes
+						Files.delete(Paths.get(opts.packFolder, cachedFile.cachedLocation));
+					}
+
+					return dc;
+				} catch (Exception e) {
+					dc.err = e;
+					return dc;
 				}
 			});
 		}
