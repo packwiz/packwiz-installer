@@ -12,25 +12,19 @@ import java.util.List;
 
 class DownloadTask implements IOptionDetails {
 	final IndexFile.File metadata;
+	ManifestFile.File cachedFile = null;
 	private Exception failure = null;
-	private boolean complete = false;
+	private boolean alreadyUpToDate = false;
+	private boolean metadataRequired = true;
 	private boolean invalidated = false;
-	private boolean optionValue = true;
 	// If file is new or isOptional changed to true, the option needs to be presented again
 	private boolean newOptional = true;
 
 	public DownloadTask(IndexFile.File metadata) {
 		this.metadata = metadata;
-		if (this.metadata.linkedFile != null) {
-			if (this.metadata.linkedFile.option != null) {
-				// Set option to it's default value
-				optionValue = this.metadata.linkedFile.option.defaultValue;
-			}
-		}
 	}
 
 	public void setDefaultHashFormat(String format) {
-		if (failure != null || complete) return;
 		if (metadata.hashFormat == null || metadata.hashFormat.length() == 0) {
 			metadata.hashFormat = format;
 		}
@@ -38,12 +32,14 @@ class DownloadTask implements IOptionDetails {
 
 	public void invalidate() {
 		invalidated = true;
-		complete = false;
+		alreadyUpToDate = false;
 	}
 
 	public void updateFromCache(ManifestFile.File cachedFile) {
-		if (failure != null || complete) return;
+		if (failure != null) return;
 		if (cachedFile == null) return;
+
+		this.cachedFile = cachedFile;
 
 		if (!invalidated) {
 			Hash currHash = null;
@@ -55,25 +51,41 @@ class DownloadTask implements IOptionDetails {
 			}
 			if (currHash != null && currHash.equals(cachedFile.hash)) {
 				// Already up to date
-				complete = true;
+				alreadyUpToDate = true;
+				metadataRequired = false;
 			}
 		}
 		if (cachedFile.isOptional) {
-			// Set option to the cached value
-			optionValue = cachedFile.optionValue;
-			if (isOptional()) {
-				// isOptional didn't change
-				newOptional = false;
-			}
+			// Because option selection dialog might set this task to true/false, metadata is always needed to download
+			// the file, and to show the description and name
+			metadataRequired = true;
 		}
 	}
 
 	public void downloadMetadata(IndexFile parentIndexFile, URI indexUri) {
-		if (failure != null || complete) return;
-		try {
-			metadata.downloadMeta(parentIndexFile, indexUri);
-		} catch (Exception e) {
-			failure = e;
+		if (failure != null) return;
+		if (metadataRequired) {
+			try {
+				metadata.downloadMeta(parentIndexFile, indexUri);
+			} catch (Exception e) {
+				failure = e;
+				return;
+			}
+			if (metadata.linkedFile != null) {
+				if (metadata.linkedFile.option != null) {
+					if (metadata.linkedFile.option.optional) {
+						if (cachedFile.isOptional) {
+							// isOptional didn't change
+							newOptional = false;
+						} else {
+							// isOptional false -> true, set option to it's default value
+							// TODO: preserve previous option value, somehow??
+							cachedFile.optionValue = this.metadata.linkedFile.option.defaultValue;
+						}
+					}
+				}
+				cachedFile.isOptional = isOptional();
+			}
 		}
 	}
 
@@ -98,7 +110,7 @@ class DownloadTask implements IOptionDetails {
 
 	@Override
 	public boolean getOptionValue() {
-		return this.optionValue;
+		return this.cachedFile.optionValue;
 	}
 
 	@Override
@@ -110,8 +122,12 @@ class DownloadTask implements IOptionDetails {
 	}
 
 	public void setOptionValue(boolean value) {
-		// TODO: if this is false, ensure the file is deleted in the actual download stage
-		this.optionValue = value;
+		// TODO: if this is false, ensure the file is deleted in the actual download stage (regardless of alreadyUpToDate?)
+		if (value && !this.cachedFile.optionValue) {
+			// Ensure that an update is done if it changes from false to true
+			alreadyUpToDate = false;
+		}
+		this.cachedFile.optionValue = value;
 	}
 
 	public static List<DownloadTask> createTasksFromIndex(IndexFile index) {

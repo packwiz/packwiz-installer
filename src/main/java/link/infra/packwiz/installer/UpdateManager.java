@@ -276,9 +276,9 @@ public class UpdateManager {
 		List<DownloadTask> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 
 		// If options changed, present all options again
-		if (tasks.stream().filter(DownloadTask::isNewOptional).count() > 0) {
+		if (tasks.stream().anyMatch(DownloadTask::isNewOptional)) {
 			List<IOptionDetails> opts = tasks.stream().filter(DownloadTask::isOptional).collect(Collectors.toList());
-			// TODO: present options
+			ui.showOptions(opts);
 		}
 
 		// TODO: different thread pool type?
