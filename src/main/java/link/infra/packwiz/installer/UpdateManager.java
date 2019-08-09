@@ -13,6 +13,7 @@ import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
+import link.infra.packwiz.installer.ui.IOptionDetails;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallProgress;
 import okio.Buffer;
@@ -133,15 +134,26 @@ public class UpdateManager {
 
 		ui.submitProgress(new InstallProgress("Checking local files..."));
 
+		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
 		List<URI> invalidatedUris = new ArrayList<>();
 		if (manifest.cachedFiles != null) {
 			for (Map.Entry<URI, ManifestFile.File> entry : manifest.cachedFiles.entrySet()) {
-				if (entry.getValue().cachedLocation != null) {
-					if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
-						URI fileUri = entry.getKey();
-						System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
-						invalidatedUris.add(fileUri);
+				boolean invalid = false;
+				// if isn't optional, or is optional but optionValue == true
+				if (!entry.getValue().isOptional || entry.getValue().optionValue) {
+					if (entry.getValue().cachedLocation != null) {
+						if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
+							invalid = true;
+						}
+					} else {
+						// if cachedLocation == null, should probably be installed!!
+						invalid = true;
 					}
+				}
+				if (invalid) {
+					URI fileUri = entry.getKey();
+					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
+					invalidatedUris.add(fileUri);
 				}
 			}
 		}
@@ -155,6 +167,7 @@ public class UpdateManager {
 		System.out.println("Modpack name: " + pf.name);
 
 		try {
+			// This is badly written, I'll probably heavily refactor it at some point
 			processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
 					HashUtils.getHash(pf.index.hashFormat, pf.index.hash), pf.index.hashFormat, manifest, invalidatedUris);
 		} catch (Exception e1) {
@@ -216,13 +229,28 @@ public class UpdateManager {
 		while (it.hasNext()) {
 			Map.Entry<URI, ManifestFile.File> entry = it.next();
 			if (entry.getValue().cachedLocation != null) {
-				if (indexFile.files.stream().noneMatch(f -> f.file.equals(entry.getKey()))) {
-					// File has been removed from the index
+				boolean alreadyDeleted = false;
+				// Delete if option value has been set to false
+				if (entry.getValue().isOptional && !entry.getValue().optionValue) {
 					try {
 						Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().cachedLocation));
 					} catch (IOException e) {
 						// TODO: should this be shown to the user in some way?
 						e.printStackTrace();
+					}
+					// Set to null, as it doesn't exist anymore
+					entry.getValue().cachedLocation = null;
+					alreadyDeleted = true;
+				}
+				if (indexFile.files.stream().noneMatch(f -> f.file.equals(entry.getKey()))) {
+					// File has been removed from the index
+					if (!alreadyDeleted) {
+						try {
+							Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().cachedLocation));
+						} catch (IOException e) {
+							// TODO: should this be shown to the user in some way?
+							e.printStackTrace();
+						}
 					}
 					it.remove();
 				}
@@ -230,46 +258,28 @@ public class UpdateManager {
 		}
 		ui.submitProgress(new InstallProgress("Comparing new files..."));
 
-		// TODO: progress bar
-		ConcurrentLinkedQueue<Exception> exceptionQueue = new ConcurrentLinkedQueue<>();
-		List<IndexFile.File> newFiles = indexFile.files.stream().peek(f -> {
-			if (f.hashFormat == null || f.hashFormat.length() == 0) {
-				f.hashFormat = indexFile.hashFormat;
+		// TODO: progress bar, parallelify
+		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile);
+		tasks.forEach(f -> f.setDefaultHashFormat(indexFile.hashFormat));
+		tasks.forEach(f -> {
+			// TODO: should linkedfile be checked as well? should a getter be used?
+			if (invalidatedUris.contains(f.metadata.file)) {
+				f.invalidate();
+			} else {
+				f.updateFromCache(manifest.cachedFiles.get(f.metadata.file));
 			}
-		}).filter(f -> {
-			if (invalidatedUris.contains(f.file)) {
-				return true;
-			}
-			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
-			Hash newHash;
-			try {
-				newHash = HashUtils.getHash(f.hashFormat, f.hash);
-			} catch (Exception e) {
-				exceptionQueue.add(e);
-				return false;
-			}
-			return cachedFile == null || !newHash.equals(cachedFile.hash);
-		}).parallel().peek(f -> {
-			try {
-				f.downloadMeta(indexFile, indexUri);
-			} catch (Exception e) {
-				exceptionQueue.add(e);
-			}
-		}).collect(Collectors.toList());
-
-		for (Exception e : exceptionQueue) {
-			// TODO: collect all exceptions, present in one dialog
-			ui.handleException(e);
-		}
-
-		// TODO: present options
-		// TODO: all options should be presented, not just new files!!!!!!!
-		// and options should be readded to newFiles after option -> true
-		newFiles.stream().filter(f -> f.linkedFile != null).filter(f -> f.linkedFile.option != null).map(f ->
-			"option: " + (f.linkedFile.option.description == null ? "null" : f.linkedFile.option.description)
-		).forEachOrdered(desc -> {
-			System.out.println(desc);
 		});
+		tasks.forEach(f -> f.downloadMetadata(indexFile, indexUri));
+
+		// TODO: collect all exceptions, present in one dialog
+		// TODO: quit if there are exceptions or just remove failed tasks before presenting options
+		List<DownloadTask> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
+
+		// If options changed, present all options again
+		if (tasks.stream().filter(DownloadTask::isNewOptional).count() > 0) {
+			List<IOptionDetails> opts = tasks.stream().filter(DownloadTask::isOptional).collect(Collectors.toList());
+			// TODO: present options
+		}
 
 		// TODO: different thread pool type?
 		ExecutorService threadPool = Executors.newFixedThreadPool(10);
