@@ -2,11 +2,19 @@ package link.infra.packwiz.installer;
 
 import link.infra.packwiz.installer.metadata.IndexFile;
 import link.infra.packwiz.installer.metadata.ManifestFile;
+import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.ui.IOptionDetails;
+import okio.Buffer;
+import okio.Okio;
+import okio.Source;
 
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,15 +27,14 @@ class DownloadTask implements IOptionDetails {
 	private boolean invalidated = false;
 	// If file is new or isOptional changed to true, the option needs to be presented again
 	private boolean newOptional = true;
+	private final UpdateManager.Options.Side downloadSide;
 
-	public DownloadTask(IndexFile.File metadata) {
+	public DownloadTask(IndexFile.File metadata, String defaultFormat, UpdateManager.Options.Side downloadSide) {
 		this.metadata = metadata;
-	}
-
-	public void setDefaultHashFormat(String format) {
 		if (metadata.hashFormat == null || metadata.hashFormat.length() == 0) {
-			metadata.hashFormat = format;
+			metadata.hashFormat = defaultFormat;
 		}
+		this.downloadSide = downloadSide;
 	}
 
 	public void invalidate() {
@@ -37,7 +44,10 @@ class DownloadTask implements IOptionDetails {
 
 	public void updateFromCache(ManifestFile.File cachedFile) {
 		if (failure != null) return;
-		if (cachedFile == null) return;
+		if (cachedFile == null) {
+			this.cachedFile = new ManifestFile.File();
+			return;
+		}
 
 		this.cachedFile = cachedFile;
 
@@ -89,6 +99,78 @@ class DownloadTask implements IOptionDetails {
 		}
 	}
 
+	public void download(String packFolder, URI indexUri) {
+		if (failure != null) return;
+		if (alreadyUpToDate) return;
+		if (metadata.linkedFile != null && !downloadSide.hasSide(metadata.linkedFile.side)) return;
+
+		Path destPath = Paths.get(packFolder, metadata.getDestURI().toString());
+
+		// Don't update files marked with preserve if they already exist on disk
+		if (metadata.preserve) {
+			if (Files.exists(destPath)) {
+				return;
+			}
+		}
+
+		try {
+			Hash hash;
+			String fileHashFormat;
+			if (metadata.linkedFile != null) {
+				hash = metadata.linkedFile.getHash();
+				fileHashFormat = metadata.linkedFile.download.hashFormat;
+			} else {
+				hash = metadata.getHash();
+				fileHashFormat = metadata.hashFormat;
+			}
+
+			Source src = metadata.getSource(indexUri);
+			GeneralHashingSource fileSource = HashUtils.getHasher(fileHashFormat).getHashingSource(src);
+			Buffer data = new Buffer();
+			Okio.buffer(fileSource).readAll(data);
+
+			if (fileSource.hashIsEqual(hash)) {
+				Files.createDirectories(destPath.getParent());
+				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING);
+			} else {
+				// TODO: no more SYSOUT!!!!!!!!!
+				System.out.println("Invalid hash for " + metadata.getDestURI().toString());
+				System.out.println("Calculated: " + fileSource.getHash());
+				System.out.println("Expected:   " + hash);
+				failure = new Exception("Hash invalid!");
+			}
+
+			if (cachedFile.cachedLocation != null && !destPath.equals(Paths.get(packFolder, cachedFile.cachedLocation))) {
+				// Delete old file if location changes
+				Files.delete(Paths.get(packFolder, cachedFile.cachedLocation));
+			}
+		} catch (Exception e) {
+			failure = e;
+		}
+		if (failure == null) {
+			if (cachedFile == null) {
+				cachedFile = new ManifestFile.File();
+			}
+			// Update the manifest file
+			try {
+				cachedFile.hash = metadata.getHash();
+			} catch (Exception e) {
+				failure = e;
+				return;
+			}
+			cachedFile.isOptional = isOptional();
+			cachedFile.cachedLocation = metadata.getDestURI().toString();
+			if (metadata.linkedFile != null) {
+				try {
+					cachedFile.linkedFileHash = metadata.linkedFile.getHash();
+				} catch (Exception e) {
+					failure = e;
+					return;
+				}
+			}
+		}
+	}
+
 	public Exception getException() {
 		return failure;
 	}
@@ -130,10 +212,10 @@ class DownloadTask implements IOptionDetails {
 		this.cachedFile.optionValue = value;
 	}
 
-	public static List<DownloadTask> createTasksFromIndex(IndexFile index) {
+	public static List<DownloadTask> createTasksFromIndex(IndexFile index, String defaultFormat, UpdateManager.Options.Side downloadSide) {
 		ArrayList<DownloadTask> tasks = new ArrayList<>();
 		for (IndexFile.File file : index.files) {
-			tasks.add(new DownloadTask(file));
+			tasks.add(new DownloadTask(file, defaultFormat, downloadSide));
 		}
 		return tasks;
 	}

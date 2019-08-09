@@ -16,16 +16,13 @@ import link.infra.packwiz.installer.request.HandlerManager;
 import link.infra.packwiz.installer.ui.IOptionDetails;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallProgress;
-import okio.Buffer;
 import okio.Okio;
 import okio.Source;
 
 import java.io.*;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -177,6 +174,7 @@ public class UpdateManager {
 		// TODO: update MMC params, java args etc
 
 		manifest.packFileHash = packFileSource.getHash();
+		manifest.cachedSide = opts.side;
 		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
 			gson.toJson(manifest, writer);
 		} catch (IOException e) {
@@ -259,15 +257,24 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Comparing new files..."));
 
 		// TODO: progress bar, parallelify
-		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile);
-		tasks.forEach(f -> f.setDefaultHashFormat(indexFile.hashFormat));
+		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side);
+		// If the side changes, invalidate EVERYTHING just in case
+		// Might not be needed, but done just to be safe
+		boolean invalidateAll = !opts.side.equals(manifest.cachedSide);
 		tasks.forEach(f -> {
-			// TODO: should linkedfile be checked as well? should a getter be used?
-			if (invalidatedUris.contains(f.metadata.file)) {
+			// TODO: should linkedfile be checked as well? should this be done in the download section?
+			if (invalidateAll) {
 				f.invalidate();
-			} else {
-				f.updateFromCache(manifest.cachedFiles.get(f.metadata.file));
+			} else if (invalidatedUris.contains(f.metadata.file)) {
+				f.invalidate();
 			}
+			ManifestFile.File file = manifest.cachedFiles.get(f.metadata.file);
+			if (file != null) {
+				// Ensure the file can be reverted later if necessary - the DownloadTask modifies the file so if it fails we need the old version back
+				file.backup();
+			}
+			// If it is null, the DownloadTask will make a new empty cachedFile
+			f.updateFromCache(file);
 		});
 		tasks.forEach(f -> f.downloadMetadata(indexFile, indexUri));
 
@@ -283,75 +290,17 @@ public class UpdateManager {
 
 		// TODO: different thread pool type?
 		ExecutorService threadPool = Executors.newFixedThreadPool(10);
-		CompletionService<DownloadCompletion> completionService = new ExecutorCompletionService<>(threadPool);
+		CompletionService<DownloadTask> completionService = new ExecutorCompletionService<>(threadPool);
 
-		for (IndexFile.File f : newFiles) {
-			ManifestFile.File cachedFile = manifest.cachedFiles.get(f.file);
+		tasks.forEach(t -> {
 			completionService.submit(() -> {
-				DownloadCompletion dc = new DownloadCompletion();
-				dc.file = f;
-
-				if (cachedFile != null && cachedFile.linkedFileHash != null && f.linkedFile != null) {
-					try {
-						if (cachedFile.linkedFileHash.equals(f.linkedFile.getHash())) {
-							// Do nothing, the file didn't change
-							// TODO: but if the hash of the metafile changed, what did change?????
-							// should this be checked somehow??
-							return dc;
-						}
-					} catch (Exception ignored) {}
-				}
-
-				Path destPath = Paths.get(opts.packFolder, f.getDestURI().toString());
-
-				// Don't update files marked with preserve if they already exist on disk
-				if (f.preserve) {
-					if (Files.exists(destPath)) {
-						return dc;
-					}
-				}
-
-				try {
-					Hash hash;
-					String fileHashFormat;
-					if (f.linkedFile != null) {
-						hash = f.linkedFile.getHash();
-						fileHashFormat = f.linkedFile.download.hashFormat;
-					} else {
-						hash = f.getHash();
-						fileHashFormat = f.hashFormat;
-					}
-
-					Source src = f.getSource(indexUri);
-					GeneralHashingSource fileSource = HashUtils.getHasher(fileHashFormat).getHashingSource(src);
-					Buffer data = new Buffer();
-					Okio.buffer(fileSource).readAll(data);
-
-					if (fileSource.hashIsEqual(hash)) {
-						Files.createDirectories(destPath.getParent());
-						Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING);
-					} else {
-						System.out.println("Invalid hash for " + f.getDestURI().toString());
-						System.out.println("Calculated: " + fileSource.getHash());
-						System.out.println("Expected:   " + hash);
-						dc.err = new Exception("Hash invalid!");
-					}
-
-					if (cachedFile != null && !destPath.equals(Paths.get(opts.packFolder, cachedFile.cachedLocation))) {
-						// Delete old file if location changes
-						Files.delete(Paths.get(opts.packFolder, cachedFile.cachedLocation));
-					}
-
-					return dc;
-				} catch (Exception e) {
-					dc.err = e;
-					return dc;
-				}
+				t.download(opts.packFolder, indexUri);
+				return t;
 			});
-		}
+		});
 
-		for (int i = 0; i < newFiles.size(); i++) {
-			DownloadCompletion ret;
+		for (int i = 0; i < tasks.size(); i++) {
+			DownloadTask ret;
 			try {
 				ret = completionService.take().get();
 			} catch (InterruptedException | ExecutionException e) {
@@ -359,57 +308,25 @@ public class UpdateManager {
 				ui.handleException(e);
 				ret = null;
 			}
-			// Update manifest
-			if (ret != null && ret.err == null && ret.file != null) {
-				ManifestFile.File newCachedFile = new ManifestFile.File();
-				try {
-					newCachedFile.hash = ret.file.getHash();
-					if (newCachedFile.hash == null) {
-						throw new Exception("Invalid hash!");
-					}
-				} catch (Exception e) {
-					ret.err = e;
-				}
-				if (ret.file.metafile && ret.file.linkedFile != null) {
-					newCachedFile.isOptional = ret.file.linkedFile.isOptional();
-					if (newCachedFile.isOptional) {
-						newCachedFile.optionValue = ret.file.optionValue;
-					}
-					try {
-						newCachedFile.linkedFileHash = ret.file.linkedFile.getHash();
-					} catch (Exception e) {
-						ret.err = e;
-					}
-				}
-				newCachedFile.cachedLocation = ret.file.getDestURI().toString();
-				manifest.cachedFiles.put(ret.file.file, newCachedFile);
+			// Update manifest - If there were no errors cachedFile has already been modified in place (good old pass by reference)
+			if (ret != null && ret.getException() != null) {
+				manifest.cachedFiles.put(ret.metadata.file, ret.cachedFile.getRevert());
 			}
 			// TODO: show errors properly?
 			String progress;
 			if (ret != null) {
-				if (ret.err != null) {
-					if (ret.file != null) {
-						progress = "Failed to download " + ret.file.getName() + ": " + ret.err.getMessage();
-					} else {
-						progress = "Failed to download: " + ret.err.getMessage();
-					}
-					ret.err.printStackTrace();
-				} else if (ret.file != null) {
-					progress = "Downloaded " + ret.file.getName();
+				if (ret.getException() != null) {
+					progress = "Failed to download " + ret.metadata.getName() + ": " + ret.getException().getMessage();
+					ret.getException().printStackTrace();
 				} else {
-					progress = "Failed to download, unknown reason";
+					progress = "Downloaded " + ret.metadata.getName();
 				}
 			} else {
 				progress = "Failed to download, unknown reason";
 			}
-			ui.submitProgress(new InstallProgress(progress, i + 1, newFiles.size()));
+			ui.submitProgress(new InstallProgress(progress, i + 1, tasks.size()));
 		}
 		// option = false file hashes should be stored to disk, but not downloaded
 		// TODO: don't include optional files in progress????
-	}
-
-	private class DownloadCompletion {
-		Exception err;
-		IndexFile.File file;
 	}
 }
