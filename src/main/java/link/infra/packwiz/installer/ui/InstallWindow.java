@@ -4,6 +4,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class InstallWindow implements IUserInterface {
@@ -160,8 +161,8 @@ public class InstallWindow implements IUserInterface {
 	}
 
 	@Override
-	public void showOptions(List<IOptionDetails> option) {
-
+	public Future<Boolean> showOptions(List<IOptionDetails> option) {
+		return null;
 	}
 
 }

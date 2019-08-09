@@ -13,7 +13,6 @@ import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
-import link.infra.packwiz.installer.ui.IOptionDetails;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallProgress;
 import okio.Okio;
@@ -31,6 +30,7 @@ public class UpdateManager {
 
 	public final Options opts;
 	public final IUserInterface ui;
+	private boolean cancelled;
 
 	public static class Options {
 		public URI downloadURI = null;
@@ -155,7 +155,7 @@ public class UpdateManager {
 			}
 		}
 
-		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash) && invalidatedUris.size() == 0) {
+		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack is already up to date!");
 			// todo: --force?
 			return;
@@ -169,6 +169,10 @@ public class UpdateManager {
 					HashUtils.getHash(pf.index.hashFormat, pf.index.hash), pf.index.hashFormat, manifest, invalidatedUris);
 		} catch (Exception e1) {
 			ui.handleExceptionAndExit(e1);
+		}
+
+		if (cancelled) {
+			return;
 		}
 
 		// TODO: update MMC params, java args etc
@@ -189,7 +193,7 @@ public class UpdateManager {
 	}
 
 	protected void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<URI> invalidatedUris) {
-		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.size() == 0) {
+		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack files are already up to date!");
 			return;
 		}
@@ -283,10 +287,21 @@ public class UpdateManager {
 		// TODO: quit if there are exceptions or just remove failed tasks before presenting options
 		List<DownloadTask> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 
+		List<DownloadTask> optionTasks = tasks.stream().filter(t -> t.getException() == null).filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
 		// If options changed, present all options again
-		if (tasks.stream().filter(DownloadTask::correctSide).anyMatch(DownloadTask::isNewOptional)) {
-			List<IOptionDetails> opts = tasks.stream().filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
-			ui.showOptions(opts);
+		if (optionTasks.stream().anyMatch(DownloadTask::isNewOptional)) {
+			// new ArrayList is requires so it's an IOptionDetails rather than a DownloadTask list
+			Future<Boolean> cancelledResult = ui.showOptions(new ArrayList<>(optionTasks));
+			try {
+				if (cancelledResult.get()) {
+					cancelled = true;
+					// TODO: Should the UI be closed somehow??
+					return;
+				}
+			} catch (InterruptedException | ExecutionException e) {
+				// Interrupted means cancelled???
+				ui.handleExceptionAndExit(e);
+			}
 		}
 
 		// TODO: different thread pool type?
@@ -299,26 +314,26 @@ public class UpdateManager {
 		}));
 
 		for (int i = 0; i < tasks.size(); i++) {
-			DownloadTask ret;
+			DownloadTask task;
 			try {
-				ret = completionService.take().get();
+				task = completionService.take().get();
 			} catch (InterruptedException | ExecutionException e) {
 				// TODO: collect all exceptions, present in one dialog
 				ui.handleException(e);
-				ret = null;
+				task = null;
 			}
 			// Update manifest - If there were no errors cachedFile has already been modified in place (good old pass by reference)
-			if (ret != null && ret.getException() != null) {
-				manifest.cachedFiles.put(ret.metadata.file, ret.cachedFile.getRevert());
+			if (task != null && task.getException() != null) {
+				manifest.cachedFiles.put(task.metadata.file, task.cachedFile.getRevert());
 			}
 			// TODO: show errors properly?
 			String progress;
-			if (ret != null) {
-				if (ret.getException() != null) {
-					progress = "Failed to download " + ret.metadata.getName() + ": " + ret.getException().getMessage();
-					ret.getException().printStackTrace();
+			if (task != null) {
+				if (task.getException() != null) {
+					progress = "Failed to download " + task.metadata.getName() + ": " + task.getException().getMessage();
+					task.getException().printStackTrace();
 				} else {
-					progress = "Downloaded " + ret.metadata.getName();
+					progress = "Downloaded " + task.metadata.getName();
 				}
 			} else {
 				progress = "Failed to download, unknown reason";

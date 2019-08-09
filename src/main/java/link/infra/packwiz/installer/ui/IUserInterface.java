@@ -1,6 +1,7 @@
 package link.infra.packwiz.installer.ui;
 
 import java.util.List;
+import java.util.concurrent.Future;
 
 public interface IUserInterface {
 	
@@ -22,6 +23,6 @@ public interface IUserInterface {
 
 	void executeManager(Runnable task);
 
-	void showOptions(List<IOptionDetails> option);
+	Future<Boolean> showOptions(List<IOptionDetails> option);
 	
 }
