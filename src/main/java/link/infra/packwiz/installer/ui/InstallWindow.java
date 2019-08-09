@@ -1,23 +1,10 @@
 package link.infra.packwiz.installer.ui;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.EventQueue;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
 
 public class InstallWindow implements IUserInterface {
 
@@ -31,15 +18,13 @@ public class InstallWindow implements IUserInterface {
 
 	@Override
 	public void show() {
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				try {
-					UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-					InstallWindow.this.initialize();
-					InstallWindow.this.frmPackwizlauncher.setVisible(true);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+		EventQueue.invokeLater(() -> {
+			try {
+				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+				InstallWindow.this.initialize();
+				InstallWindow.this.frmPackwizlauncher.setVisible(true);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		});
 	}
@@ -80,16 +65,14 @@ public class InstallWindow implements IUserInterface {
 		panel_1.add(btnOptions, gbc_btnOptions);
 		
 		JButton btnCancel = new JButton("Cancel");
-		btnCancel.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent arg0) {
-				if (worker != null) {
-					worker.cancel(true);
-				}
-				frmPackwizlauncher.dispose();
-				// TODO: show window to ask user what to do
-				System.out.println("Update process cancelled by user!");
-				System.exit(1);
+		btnCancel.addActionListener(event -> {
+			if (worker != null) {
+				worker.cancel(true);
 			}
+			frmPackwizlauncher.dispose();
+			// TODO: show window to ask user what to do
+			System.out.println("Update process cancelled by user!");
+			System.exit(1);
 		});
 		btnCancel.setAlignmentX(Component.CENTER_ALIGNMENT);
 		GridBagConstraints gbc_btnCancel = new GridBagConstraints();
@@ -101,10 +84,8 @@ public class InstallWindow implements IUserInterface {
 	@Override
 	public void handleException(Exception e) {
 		e.printStackTrace();
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				JOptionPane.showMessageDialog(null, "An error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
-			}
+		EventQueue.invokeLater(() -> {
+			JOptionPane.showMessageDialog(null, "An error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
 		});
 	}
 
@@ -113,11 +94,9 @@ public class InstallWindow implements IUserInterface {
 		e.printStackTrace();
 		// Used to prevent the done() handler of SwingWorker executing if the invokeLater hasn't happened yet
 		aboutToCrash.set(true);
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				JOptionPane.showMessageDialog(null, "A fatal error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
-				System.exit(1);
-			}
+		EventQueue.invokeLater(() -> {
+			JOptionPane.showMessageDialog(null, "A fatal error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+			System.exit(1);
 		});
 	}
 	
@@ -125,11 +104,7 @@ public class InstallWindow implements IUserInterface {
 	public void setTitle(String title) {
 		this.title = title;
 		if (frmPackwizlauncher != null) {
-			EventQueue.invokeLater(new Runnable() {
-				public void run() {
-					InstallWindow.this.frmPackwizlauncher.setTitle(title);
-				}
-			});
+			EventQueue.invokeLater(() -> InstallWindow.this.frmPackwizlauncher.setTitle(title));
 		}
 	}
 
@@ -142,48 +117,51 @@ public class InstallWindow implements IUserInterface {
 
 	@Override
 	public void executeManager(Runnable task) {
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				worker = new SwingWorkerButWithPublicPublish<Void, InstallProgress>() {
+		EventQueue.invokeLater(() -> {
+			worker = new SwingWorkerButWithPublicPublish<>() {
 
-					@Override
-					protected Void doInBackground() throws Exception {
-						task.run();
-						return null;
-					}
+				@Override
+				protected Void doInBackground() {
+					task.run();
+					return null;
+				}
 
-					@Override
-					protected void process(List<InstallProgress> chunks) {
-						// Only process last chunk
-						if (chunks.size() > 0) {
-							InstallProgress prog = chunks.get(chunks.size() - 1);
-							if (prog.hasProgress) {
-								progressBar.setIndeterminate(false);
-								progressBar.setValue(prog.progress);
-								progressBar.setMaximum(prog.progressTotal);
-							} else {
-								progressBar.setIndeterminate(true);
-								progressBar.setValue(0);
-							}
-							lblProgresslabel.setText(prog.message);
+				@Override
+				protected void process(List<InstallProgress> chunks) {
+					// Only process last chunk
+					if (chunks.size() > 0) {
+						InstallProgress prog = chunks.get(chunks.size() - 1);
+						if (prog.hasProgress) {
+							progressBar.setIndeterminate(false);
+							progressBar.setValue(prog.progress);
+							progressBar.setMaximum(prog.progressTotal);
+						} else {
+							progressBar.setIndeterminate(true);
+							progressBar.setValue(0);
 						}
+						lblProgresslabel.setText(prog.message);
 					}
+				}
 
-					@Override
-					protected void done() {
-						if (aboutToCrash.get()) {
-							return;
-						}
-						// TODO: a better way to do this?
-						frmPackwizlauncher.dispose();
-						System.out.println("Finished successfully!");
-						System.exit(0);
+				@Override
+				protected void done() {
+					if (aboutToCrash.get()) {
+						return;
 					}
-			
-				};
-				worker.execute();
-			}
+					// TODO: a better way to do this?
+					frmPackwizlauncher.dispose();
+					System.out.println("Finished successfully!");
+					System.exit(0);
+				}
+
+			};
+			worker.execute();
 		});
+	}
+
+	@Override
+	public void showOptions(List<IOptionDetails> option) {
+
 	}
 
 }

@@ -102,7 +102,7 @@ class DownloadTask implements IOptionDetails {
 	public void download(String packFolder, URI indexUri) {
 		if (failure != null) return;
 		if (alreadyUpToDate) return;
-		if (metadata.linkedFile != null && !downloadSide.hasSide(metadata.linkedFile.side)) return;
+		if (!correctSide()) return;
 
 		Path destPath = Paths.get(packFolder, metadata.getDestURI().toString());
 
@@ -165,7 +165,6 @@ class DownloadTask implements IOptionDetails {
 					cachedFile.linkedFileHash = metadata.linkedFile.getHash();
 				} catch (Exception e) {
 					failure = e;
-					return;
 				}
 			}
 		}
@@ -184,6 +183,13 @@ class DownloadTask implements IOptionDetails {
 
 	public boolean isNewOptional() {
 		return isOptional() && this.newOptional;
+	}
+
+	public boolean correctSide() {
+		if (metadata.linkedFile != null) {
+			return downloadSide.hasSide(metadata.linkedFile.side);
+		}
+		return true;
 	}
 
 	public String getName() {

@@ -1,5 +1,7 @@
 package link.infra.packwiz.installer.ui;
 
+import java.util.List;
+
 public class CLIHandler implements IUserInterface {
 
 	@Override
@@ -29,5 +31,10 @@ public class CLIHandler implements IUserInterface {
 		task.run();
 		System.out.println("Finished successfully!");
 	}
-	
+
+	@Override
+	public void showOptions(List<IOptionDetails> option) {
+		throw new RuntimeException("Optional mods not implemented for CLI! Make sure your optional mods are only on the client side!");
+	}
+
 }

@@ -38,7 +38,7 @@ public class UpdateManager {
 		public String packFolder = ".";
 		public Side side = Side.CLIENT;
 
-		public static enum Side {
+		public enum Side {
 			@SerializedName("client")
 			CLIENT("client"), @SerializedName("server")
 			SERVER("server"), @SerializedName("both")
@@ -215,6 +215,7 @@ public class UpdateManager {
 
 		if (!indexFileSource.hashIsEqual(indexHash)) {
 			// TODO: throw exception
+			System.out.println("I was meant to put an error message here but I'll do that later");
 			return;
 		}
 
@@ -283,8 +284,8 @@ public class UpdateManager {
 		List<DownloadTask> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 
 		// If options changed, present all options again
-		if (tasks.stream().anyMatch(DownloadTask::isNewOptional)) {
-			List<IOptionDetails> opts = tasks.stream().filter(DownloadTask::isOptional).collect(Collectors.toList());
+		if (tasks.stream().filter(DownloadTask::correctSide).anyMatch(DownloadTask::isNewOptional)) {
+			List<IOptionDetails> opts = tasks.stream().filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
 			ui.showOptions(opts);
 		}
 
@@ -292,12 +293,10 @@ public class UpdateManager {
 		ExecutorService threadPool = Executors.newFixedThreadPool(10);
 		CompletionService<DownloadTask> completionService = new ExecutorCompletionService<>(threadPool);
 
-		tasks.forEach(t -> {
-			completionService.submit(() -> {
-				t.download(opts.packFolder, indexUri);
-				return t;
-			});
-		});
+		tasks.forEach(t -> completionService.submit(() -> {
+			t.download(opts.packFolder, indexUri);
+			return t;
+		}));
 
 		for (int i = 0; i < tasks.size(); i++) {
 			DownloadTask ret;
@@ -326,7 +325,5 @@ public class UpdateManager {
 			}
 			ui.submitProgress(new InstallProgress(progress, i + 1, tasks.size()));
 		}
-		// option = false file hashes should be stored to disk, but not downloaded
-		// TODO: don't include optional files in progress????
 	}
 }
