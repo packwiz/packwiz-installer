@@ -5,7 +5,7 @@ public class OptionTempHandler implements IOptionDetails {
 	private final IOptionDetails opt;
 	private boolean tempValue;
 
-	public OptionTempHandler(IOptionDetails opt) {
+	OptionTempHandler(IOptionDetails opt) {
 		this.opt = opt;
 		tempValue = opt.getOptionValue();
 	}
@@ -26,7 +26,7 @@ public class OptionTempHandler implements IOptionDetails {
 		tempValue = value;
 	}
 
-	public void finalise() {
+	void finalise() {
 		opt.setOptionValue(tempValue);
 	}
 

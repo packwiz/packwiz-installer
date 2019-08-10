@@ -18,7 +18,6 @@ import java.util.concurrent.CompletableFuture;
 public class OptionsSelectWindow extends JDialog implements ActionListener {
 
 	private static final long serialVersionUID = 1L;
-	private final JPanel contentPanel = new JPanel();
 	private final JLabel lblOptionDescription;
 	private final OptionTableModel tableModel;
 	private final CompletableFuture<Boolean> future;
@@ -26,7 +25,7 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 	/**
 	 * Create the dialog.
 	 */
-	public OptionsSelectWindow(List<IOptionDetails> optList, CompletableFuture<Boolean> future) {
+	OptionsSelectWindow(List<IOptionDetails> optList, CompletableFuture<Boolean> future) {
 		tableModel = new OptionTableModel(optList);
 		this.future = future;
 
@@ -34,6 +33,7 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 		setTitle("Select optional mods...");
 		setBounds(100, 100, 450, 300);
 		getContentPane().setLayout(new BorderLayout());
+		JPanel contentPanel = new JPanel();
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
 		getContentPane().add(contentPanel, BorderLayout.CENTER);
 		contentPanel.setLayout(new BorderLayout(0, 0));
@@ -114,10 +114,10 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 		});
 	}
 
-	private class OptionTableModel implements TableModel {
-		private List<OptionTempHandler> opts = new ArrayList<OptionTempHandler>();
+	private static class OptionTableModel implements TableModel {
+		private List<OptionTempHandler> opts = new ArrayList<>();
 
-		public OptionTableModel(List<IOptionDetails> givenOpts) {
+		OptionTableModel(List<IOptionDetails> givenOpts) {
 			for (IOptionDetails opt : givenOpts) {
 				opts.add(new OptionTempHandler(opt));
 			}
@@ -173,11 +173,11 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 		@Override
 		public void removeTableModelListener(TableModelListener l) {}
 
-		public String getDescription(int rowIndex) {
+		String getDescription(int rowIndex) {
 			return opts.get(rowIndex).getOptionDescription();
 		}
 
-		public void finalise() {
+		void finalise() {
 			for (OptionTempHandler opt : opts) {
 				opt.finalise();
 			}
