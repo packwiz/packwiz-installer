@@ -119,7 +119,7 @@ public class InstallWindow implements IUserInterface {
 	@Override
 	public void executeManager(Runnable task) {
 		EventQueue.invokeLater(() -> {
-			worker = new SwingWorkerButWithPublicPublish<>() {
+			worker = new SwingWorkerButWithPublicPublish<Void, InstallProgress>() {
 
 				@Override
 				protected Void doInBackground() {
