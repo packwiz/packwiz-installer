@@ -23,6 +23,7 @@ public interface IUserInterface {
 
 	void executeManager(Runnable task);
 
+	// Return true if the installation was cancelled!
 	Future<Boolean> showOptions(List<IOptionDetails> option);
 	
 }

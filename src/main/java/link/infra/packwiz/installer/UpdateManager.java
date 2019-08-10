@@ -172,6 +172,8 @@ public class UpdateManager {
 		}
 
 		if (cancelled) {
+			System.out.println("Update cancelled by user!");
+			System.exit(1);
 			return;
 		}
 

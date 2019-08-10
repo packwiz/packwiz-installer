@@ -102,14 +102,14 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 		addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent e) {
-				future.complete(false);
+				future.complete(true);
 			}
 
 			@Override
 			public void windowClosed(WindowEvent e) {
 				// Just in case closing didn't get triggered - if something else called dispose() the
 				// future will have already completed
-				future.complete(false);
+				future.complete(true);
 			}
 		});
 	}
@@ -189,10 +189,10 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 	public void actionPerformed(ActionEvent e) {
 		if (e.getActionCommand().equals("OK")) {
 			tableModel.finalise();
-			future.complete(true);
+			future.complete(false);
 			dispose();
 		} else if (e.getActionCommand().equals("Cancel")) {
-			future.complete(false);
+			future.complete(true);
 			dispose();
 		}
 	}
