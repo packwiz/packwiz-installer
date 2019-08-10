@@ -187,7 +187,7 @@ class DownloadTask implements IOptionDetails {
 
 	public boolean correctSide() {
 		if (metadata.linkedFile != null) {
-			return downloadSide.hasSide(metadata.linkedFile.side);
+			return metadata.linkedFile.side.hasSide(downloadSide);
 		}
 		return true;
 	}

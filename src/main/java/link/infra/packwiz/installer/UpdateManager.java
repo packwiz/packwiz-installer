@@ -323,8 +323,16 @@ public class UpdateManager {
 				task = null;
 			}
 			// Update manifest - If there were no errors cachedFile has already been modified in place (good old pass by reference)
-			if (task != null && task.getException() != null) {
-				manifest.cachedFiles.put(task.metadata.file, task.cachedFile.getRevert());
+			if (task != null) {
+				if (task.getException() != null) {
+					ManifestFile.File file = task.cachedFile.getRevert();
+					if (file != null) {
+						manifest.cachedFiles.put(task.metadata.file, file);
+					}
+				} else {
+					// idiot, if it wasn't there in the first place it won't magically appear there
+					manifest.cachedFiles.putIfAbsent(task.metadata.file, task.cachedFile);
+				}
 			}
 			// TODO: show errors properly?
 			String progress;
