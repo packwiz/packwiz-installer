@@ -77,7 +77,6 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 				lblOptionDescription.setOpaque(true);
 				lblOptionDescription.setWrapStyleWord(true);
 				lblOptionDescription.setLineWrap(true);
-				lblOptionDescription.setOpaque(true);
 				lblOptionDescription.setEditable(false);
 				lblOptionDescription.setFocusable(false);
 				lblOptionDescription.setFont(UIManager.getFont("Label.font"));
