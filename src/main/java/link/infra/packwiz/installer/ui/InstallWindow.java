@@ -165,9 +165,11 @@ public class InstallWindow implements IUserInterface {
 	@Override
 	public Future<Boolean> showOptions(List<IOptionDetails> opts) {
 		CompletableFuture<Boolean> future = new CompletableFuture<>();
-		OptionsSelectWindow dialog = new OptionsSelectWindow(opts, future);
-		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-		dialog.setVisible(true);
+		EventQueue.invokeLater(() -> {
+			OptionsSelectWindow dialog = new OptionsSelectWindow(opts, future);
+			dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+			dialog.setVisible(true);
+		});
 		return future;
 	}
 

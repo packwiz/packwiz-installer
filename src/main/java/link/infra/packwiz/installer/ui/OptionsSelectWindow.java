@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 public class OptionsSelectWindow extends JDialog implements ActionListener {
 
 	private static final long serialVersionUID = 1L;
-	private final JLabel lblOptionDescription;
+	private final JTextArea lblOptionDescription;
 	private final OptionTableModel tableModel;
 	private final CompletableFuture<Boolean> future;
 
@@ -71,10 +71,15 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 				splitPane.setLeftComponent(scrollPane);
 			}
 			{
-				lblOptionDescription = new JLabel("Select an option...");
+				lblOptionDescription = new JTextArea("Select an option...");
 				lblOptionDescription.setBackground(UIManager.getColor("List.background"));
 				lblOptionDescription.setOpaque(true);
-				lblOptionDescription.setVerticalAlignment(SwingConstants.TOP);
+				lblOptionDescription.setWrapStyleWord(true);
+				lblOptionDescription.setLineWrap(true);
+				lblOptionDescription.setOpaque(true);
+				lblOptionDescription.setEditable(false);
+				lblOptionDescription.setFocusable(false);
+				lblOptionDescription.setFont(UIManager.getFont("Label.font"));
 				lblOptionDescription.setBorder(new EmptyBorder(10, 10, 10, 10));
 				JScrollPane scrollPane = new JScrollPane(lblOptionDescription);
 				scrollPane.setBorder(new EmptyBorder(0, 0, 0, 0));
