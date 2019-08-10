@@ -10,6 +10,7 @@ import okio.Buffer;
 import okio.Okio;
 import okio.Source;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -101,8 +102,21 @@ class DownloadTask implements IOptionDetails {
 
 	public void download(String packFolder, URI indexUri) {
 		if (failure != null) return;
+
+		// Ensure it is removed
+		if (!cachedFile.optionValue || !correctSide()) {
+			if (cachedFile.cachedLocation == null) return;
+			try {
+				Files.deleteIfExists(Paths.get(packFolder, cachedFile.cachedLocation));
+			} catch (IOException e) {
+				// TODO: how much of a problem is this? use log4j/other log library to show warning?
+				e.printStackTrace();
+			}
+			cachedFile.cachedLocation = null;
+			return;
+		}
+
 		if (alreadyUpToDate) return;
-		if (!correctSide()) return;
 
 		Path destPath = Paths.get(packFolder, metadata.getDestURI().toString());
 
@@ -198,7 +212,7 @@ class DownloadTask implements IOptionDetails {
 
 	@Override
 	public boolean getOptionValue() {
-		return this.cachedFile.optionValue;
+		return cachedFile.optionValue;
 	}
 
 	@Override
@@ -210,12 +224,11 @@ class DownloadTask implements IOptionDetails {
 	}
 
 	public void setOptionValue(boolean value) {
-		// TODO: if this is false, ensure the file is deleted in the actual download stage (regardless of alreadyUpToDate?)
-		if (value && !this.cachedFile.optionValue) {
-			// Ensure that an update is done if it changes from false to true
+		if (value && !cachedFile.optionValue) {
+			// Ensure that an update is done if it changes from false to true, or from true to false
 			alreadyUpToDate = false;
 		}
-		this.cachedFile.optionValue = value;
+		cachedFile.optionValue = value;
 	}
 
 	public static List<DownloadTask> createTasksFromIndex(IndexFile index, String defaultFormat, UpdateManager.Options.Side downloadSide) {
