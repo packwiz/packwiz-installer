@@ -4,6 +4,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -161,8 +162,12 @@ public class InstallWindow implements IUserInterface {
 	}
 
 	@Override
-	public Future<Boolean> showOptions(List<IOptionDetails> option) {
-		return null;
+	public Future<Boolean> showOptions(List<IOptionDetails> opts) {
+		CompletableFuture<Boolean> future = new CompletableFuture<Boolean>();
+		OptionsSelectWindow dialog = new OptionsSelectWindow(opts, future);
+		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+		dialog.setVisible(true);
+		return future;
 	}
 
 }

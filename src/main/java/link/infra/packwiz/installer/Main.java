@@ -109,15 +109,12 @@ public class Main {
 		// Start update process!
 		// TODO: start in SwingWorker?
 		try {
-			ui.executeManager(new Runnable(){
-				@Override
-				public void run() {
-					try {
-						new UpdateManager(uOptions, ui);
-					} catch (Exception e) {
-						// TODO: better error message?
-						ui.handleExceptionAndExit(e);
-					}
+			ui.executeManager(() -> {
+				try {
+					new UpdateManager(uOptions, ui);
+				} catch (Exception e) {
+					// TODO: better error message?
+					ui.handleExceptionAndExit(e);
 				}
 			});
 		} catch (Exception e) {
