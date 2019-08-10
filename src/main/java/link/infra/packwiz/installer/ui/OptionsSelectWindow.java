@@ -25,12 +25,13 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 	/**
 	 * Create the dialog.
 	 */
-	OptionsSelectWindow(List<IOptionDetails> optList, CompletableFuture<Boolean> future) {
+	OptionsSelectWindow(List<IOptionDetails> optList, CompletableFuture<Boolean> future, JFrame parentWindow) {
+		super(parentWindow, "Select optional mods...", true);
+
 		tableModel = new OptionTableModel(optList);
 		this.future = future;
 
-		setModal(true);
-		setTitle("Select optional mods...");
+		setLocationRelativeTo(parentWindow);
 		setBounds(100, 100, 450, 300);
 		getContentPane().setLayout(new BorderLayout());
 		JPanel contentPanel = new JPanel();

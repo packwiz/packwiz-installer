@@ -166,7 +166,7 @@ public class InstallWindow implements IUserInterface {
 	public Future<Boolean> showOptions(List<IOptionDetails> opts) {
 		CompletableFuture<Boolean> future = new CompletableFuture<>();
 		EventQueue.invokeLater(() -> {
-			OptionsSelectWindow dialog = new OptionsSelectWindow(opts, future);
+			OptionsSelectWindow dialog = new OptionsSelectWindow(opts, future, frmPackwizlauncher);
 			dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 			dialog.setVisible(true);
 		});
