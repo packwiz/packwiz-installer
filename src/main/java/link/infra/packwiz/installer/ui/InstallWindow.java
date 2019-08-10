@@ -33,6 +33,7 @@ public class InstallWindow implements IUserInterface {
 
 	/**
 	 * Initialize the contents of the frame.
+	 * @wbp.parser.entryPoint
 	 */
 	private void initialize() {
 		frmPackwizlauncher = new JFrame();
@@ -40,32 +41,32 @@ public class InstallWindow implements IUserInterface {
 		frmPackwizlauncher.setBounds(100, 100, 493, 95);
 		frmPackwizlauncher.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmPackwizlauncher.setLocationRelativeTo(null);
-		
+
 		JPanel panel = new JPanel();
 		panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 		frmPackwizlauncher.getContentPane().add(panel, BorderLayout.CENTER);
 		panel.setLayout(new BorderLayout(0, 0));
-		
+
 		progressBar = new JProgressBar();
 		progressBar.setIndeterminate(true);
 		panel.add(progressBar, BorderLayout.CENTER);
-		
+
 		lblProgresslabel = new JLabel("Loading...");
 		panel.add(lblProgresslabel, BorderLayout.SOUTH);
-		
+
 		JPanel panel_1 = new JPanel();
 		panel_1.setBorder(new EmptyBorder(0, 5, 0, 5));
 		frmPackwizlauncher.getContentPane().add(panel_1, BorderLayout.EAST);
 		GridBagLayout gbl_panel_1 = new GridBagLayout();
 		panel_1.setLayout(gbl_panel_1);
-		
-		JButton btnOptions = new JButton("Options...");
+
+		JButton btnOptions = new JButton("Configure...");
 		btnOptions.setAlignmentX(Component.CENTER_ALIGNMENT);
 		GridBagConstraints gbc_btnOptions = new GridBagConstraints();
 		gbc_btnOptions.gridx = 0;
 		gbc_btnOptions.gridy = 0;
 		panel_1.add(btnOptions, gbc_btnOptions);
-		
+
 		JButton btnCancel = new JButton("Cancel");
 		btnCancel.addActionListener(event -> {
 			if (worker != null) {
@@ -101,7 +102,7 @@ public class InstallWindow implements IUserInterface {
 			System.exit(1);
 		});
 	}
-	
+
 	@Override
 	public void setTitle(String title) {
 		this.title = title;
