@@ -31,8 +31,8 @@ public class OptionsSelectWindow extends JDialog implements ActionListener {
 		tableModel = new OptionTableModel(optList);
 		this.future = future;
 
-		setLocationRelativeTo(parentWindow);
 		setBounds(100, 100, 450, 300);
+		setLocationRelativeTo(parentWindow);
 		getContentPane().setLayout(new BorderLayout());
 		JPanel contentPanel = new JPanel();
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
