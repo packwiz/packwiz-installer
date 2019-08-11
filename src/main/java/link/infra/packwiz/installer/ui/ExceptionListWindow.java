@@ -23,7 +23,7 @@ class ExceptionListWindow extends JDialog {
 	/**
 	 * Create the dialog.
 	 */
-	ExceptionListWindow(List<IExceptionDetails> eList, CompletableFuture<ExceptionListResult> future, int numTotal, JFrame parentWindow) {
+	ExceptionListWindow(List<IExceptionDetails> eList, CompletableFuture<ExceptionListResult> future, int numTotal, boolean allowsIgnore, JFrame parentWindow) {
 		super(parentWindow, "Failed file downloads", true);
 
 		setBounds(100, 100, 540, 340);
@@ -110,6 +110,7 @@ class ExceptionListWindow extends JDialog {
 				}
 				{
 					JButton btnIgnoreUpdate = new JButton("Ignore update");
+					btnIgnoreUpdate.setEnabled(allowsIgnore);
 					btnIgnoreUpdate.setToolTipText("Start the game without attempting to update");
 					btnIgnoreUpdate.addActionListener(e -> {
 						future.complete(ExceptionListResult.IGNORE);

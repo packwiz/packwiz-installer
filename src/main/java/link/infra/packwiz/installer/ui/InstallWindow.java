@@ -180,10 +180,10 @@ public class InstallWindow implements IUserInterface {
 	}
 
 	@Override
-	public Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal) {
+	public Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal, boolean allowsIgnore) {
 		CompletableFuture<IExceptionDetails.ExceptionListResult> future = new CompletableFuture<>();
 		EventQueue.invokeLater(() -> {
-			ExceptionListWindow dialog = new ExceptionListWindow(opts, future, numTotal, frmPackwizlauncher);
+			ExceptionListWindow dialog = new ExceptionListWindow(opts, future, numTotal, allowsIgnore, frmPackwizlauncher);
 			dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 			dialog.setVisible(true);
 		});

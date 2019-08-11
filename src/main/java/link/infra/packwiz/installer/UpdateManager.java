@@ -32,6 +32,7 @@ public class UpdateManager {
 	private final Options opts;
 	public final IUserInterface ui;
 	private boolean cancelled;
+	private boolean cancelledStartGame = false;
 
 	public static class Options {
 		URI downloadURI = null;
@@ -41,8 +42,10 @@ public class UpdateManager {
 
 		public enum Side {
 			@SerializedName("client")
-			CLIENT("client"), @SerializedName("server")
-			SERVER("server"), @SerializedName("both")
+			CLIENT("client"),
+			@SerializedName("server")
+			SERVER("server"),
+			@SerializedName("both")
 			BOTH("both", new Side[] { CLIENT, SERVER });
 
 			private final String sideName;
@@ -176,6 +179,10 @@ public class UpdateManager {
 			System.out.println("Update cancelled by user!");
 			System.exit(1);
 			return;
+		} else if (cancelledStartGame) {
+			System.out.println("Update cancelled by user! Continuing to start game...");
+			System.exit(0);
+			return;
 		}
 
 		// TODO: update MMC params, java args etc
@@ -286,11 +293,30 @@ public class UpdateManager {
 		});
 		tasks.forEach(f -> f.downloadMetadata(indexFile, indexUri));
 
-		// TODO: collect all exceptions, present in one dialog
-		// TODO: quit if there are exceptions or just remove failed tasks before presenting options
 		List<IExceptionDetails> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
+		if (failedTasks.size() > 0) {
+			IExceptionDetails.ExceptionListResult exceptionListResult;
+			try {
+				exceptionListResult = ui.showExceptions(failedTasks, tasks.size(), true).get();
+			} catch (InterruptedException | ExecutionException e) {
+				// Interrupted means cancelled???
+				ui.handleExceptionAndExit(e);
+				return;
+			}
+			switch (exceptionListResult) {
+				case CONTINUE:
+					break;
+				case CANCEL:
+					cancelled = true;
+					return;
+				case IGNORE:
+					cancelledStartGame = true;
+					return;
+			}
+		}
 
-		List<DownloadTask> optionTasks = tasks.stream().filter(t -> t.getException() == null).filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
+		List<DownloadTask> nonFailedFirstTasks = tasks.stream().filter(t -> t.getException() == null).collect(Collectors.toList());
+		List<DownloadTask> optionTasks = nonFailedFirstTasks.stream().filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
 		// If options changed, present all options again
 		if (optionTasks.stream().anyMatch(DownloadTask::isNewOptional)) {
 			// new ArrayList is requires so it's an IOptionDetails rather than a DownloadTask list
@@ -321,7 +347,6 @@ public class UpdateManager {
 			try {
 				task = completionService.take().get();
 			} catch (InterruptedException | ExecutionException e) {
-				// TODO: collect all exceptions, present in one dialog
 				ui.handleException(e);
 				task = null;
 			}
@@ -337,19 +362,41 @@ public class UpdateManager {
 					manifest.cachedFiles.putIfAbsent(task.metadata.file, task.cachedFile);
 				}
 			}
-			// TODO: show errors properly?
+
 			String progress;
 			if (task != null) {
 				if (task.getException() != null) {
 					progress = "Failed to download " + task.metadata.getName() + ": " + task.getException().getMessage();
 					task.getException().printStackTrace();
 				} else {
+					// TODO: should this be revised for tasks that didn't actually download it?
 					progress = "Downloaded " + task.metadata.getName();
 				}
 			} else {
 				progress = "Failed to download, unknown reason";
 			}
 			ui.submitProgress(new InstallProgress(progress, i + 1, tasks.size()));
+		}
+
+		List<IExceptionDetails> failedTasks2ElectricBoogaloo = nonFailedFirstTasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
+		if (failedTasks2ElectricBoogaloo.size() > 0) {
+			IExceptionDetails.ExceptionListResult exceptionListResult;
+			try {
+				exceptionListResult = ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size(), false).get();
+			} catch (InterruptedException | ExecutionException e) {
+				// Interrupted means cancelled???
+				ui.handleExceptionAndExit(e);
+				return;
+			}
+			switch (exceptionListResult) {
+				case CONTINUE:
+					break;
+				case CANCEL:
+					cancelled = true;
+					return;
+				case IGNORE:
+					cancelledStartGame = true;
+			}
 		}
 	}
 }

@@ -40,7 +40,7 @@ public class CLIHandler implements IUserInterface {
 	}
 
 	@Override
-	public Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal) {
+	public Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal, boolean allowsIgnore) {
 		CompletableFuture<IExceptionDetails.ExceptionListResult> future = new CompletableFuture<>();
 		future.complete(IExceptionDetails.ExceptionListResult.CANCEL);
 		return future;

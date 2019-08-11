@@ -23,6 +23,6 @@ public interface IUserInterface {
 	// Return true if the installation was cancelled!
 	Future<Boolean> showOptions(List<IOptionDetails> option);
 
-	Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal);
+	Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal, boolean allowsIgnore);
 	
 }
