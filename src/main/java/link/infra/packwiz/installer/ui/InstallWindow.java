@@ -101,6 +101,12 @@ public class InstallWindow implements IUserInterface {
 			JOptionPane.showMessageDialog(null, "A fatal error occurred: \n" + e.getClass().getCanonicalName() + ": " + e.getMessage(), title, JOptionPane.ERROR_MESSAGE);
 			System.exit(1);
 		});
+		// Pause forever, so it blocks while we wait for System.exit to take effect
+		try {
+			Thread.currentThread().join();
+		} catch (InterruptedException ex) {
+			// no u
+		}
 	}
 
 	@Override

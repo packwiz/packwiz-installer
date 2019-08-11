@@ -13,6 +13,7 @@ import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
+import link.infra.packwiz.installer.ui.IExceptionDetails;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallProgress;
 import okio.Okio;
@@ -28,15 +29,15 @@ import java.util.stream.Collectors;
 
 public class UpdateManager {
 
-	public final Options opts;
+	private final Options opts;
 	public final IUserInterface ui;
 	private boolean cancelled;
 
 	public static class Options {
-		public URI downloadURI = null;
-		public String manifestFile = "packwiz.json"; // TODO: make configurable
-		public String packFolder = ".";
-		public Side side = Side.CLIENT;
+		URI downloadURI = null;
+		String manifestFile = "packwiz.json"; // TODO: make configurable
+		String packFolder = ".";
+		Side side = Side.CLIENT;
 
 		public enum Side {
 			@SerializedName("client")
@@ -88,13 +89,13 @@ public class UpdateManager {
 		}
 	}
 
-	public UpdateManager(Options opts, IUserInterface ui) {
+	UpdateManager(Options opts, IUserInterface ui) {
 		this.opts = opts;
 		this.ui = ui;
 		this.start();
 	}
 
-	protected void start() {
+	private void start() {
 		this.checkOptions();
 
 		ui.submitProgress(new InstallProgress("Loading manifest file..."));
@@ -190,11 +191,11 @@ public class UpdateManager {
 
 	}
 
-	protected void checkOptions() {
+	private void checkOptions() {
 		// TODO: implement
 	}
 
-	protected void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<URI> invalidatedUris) {
+	private void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<URI> invalidatedUris) {
 		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack files are already up to date!");
 			return;
@@ -287,7 +288,7 @@ public class UpdateManager {
 
 		// TODO: collect all exceptions, present in one dialog
 		// TODO: quit if there are exceptions or just remove failed tasks before presenting options
-		List<DownloadTask> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
+		List<IExceptionDetails> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 
 		List<DownloadTask> optionTasks = tasks.stream().filter(t -> t.getException() == null).filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
 		// If options changed, present all options again

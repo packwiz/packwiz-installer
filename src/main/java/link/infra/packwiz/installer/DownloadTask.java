@@ -5,6 +5,7 @@ import link.infra.packwiz.installer.metadata.ManifestFile;
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
+import link.infra.packwiz.installer.ui.IExceptionDetails;
 import link.infra.packwiz.installer.ui.IOptionDetails;
 import okio.Buffer;
 import okio.Okio;
@@ -19,7 +20,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
-class DownloadTask implements IOptionDetails {
+class DownloadTask implements IOptionDetails, IExceptionDetails {
 	final IndexFile.File metadata;
 	ManifestFile.File cachedFile = null;
 	private Exception failure = null;
@@ -30,7 +31,7 @@ class DownloadTask implements IOptionDetails {
 	private boolean newOptional = true;
 	private final UpdateManager.Options.Side downloadSide;
 
-	public DownloadTask(IndexFile.File metadata, String defaultFormat, UpdateManager.Options.Side downloadSide) {
+	private DownloadTask(IndexFile.File metadata, String defaultFormat, UpdateManager.Options.Side downloadSide) {
 		this.metadata = metadata;
 		if (metadata.hashFormat == null || metadata.hashFormat.length() == 0) {
 			metadata.hashFormat = defaultFormat;
@@ -38,12 +39,12 @@ class DownloadTask implements IOptionDetails {
 		this.downloadSide = downloadSide;
 	}
 
-	public void invalidate() {
+	void invalidate() {
 		invalidated = true;
 		alreadyUpToDate = false;
 	}
 
-	public void updateFromCache(ManifestFile.File cachedFile) {
+	void updateFromCache(ManifestFile.File cachedFile) {
 		if (failure != null) return;
 		if (cachedFile == null) {
 			this.cachedFile = new ManifestFile.File();
@@ -53,7 +54,7 @@ class DownloadTask implements IOptionDetails {
 		this.cachedFile = cachedFile;
 
 		if (!invalidated) {
-			Hash currHash = null;
+			Hash currHash;
 			try {
 				currHash = HashUtils.getHash(metadata.hashFormat, metadata.hash);
 			} catch (Exception e) {
@@ -73,7 +74,7 @@ class DownloadTask implements IOptionDetails {
 		}
 	}
 
-	public void downloadMetadata(IndexFile parentIndexFile, URI indexUri) {
+	void downloadMetadata(IndexFile parentIndexFile, URI indexUri) {
 		if (failure != null) return;
 		if (metadataRequired) {
 			try {
@@ -100,7 +101,7 @@ class DownloadTask implements IOptionDetails {
 		}
 	}
 
-	public void download(String packFolder, URI indexUri) {
+	void download(String packFolder, URI indexUri) {
 		if (failure != null) return;
 
 		// Ensure it is removed
@@ -188,18 +189,18 @@ class DownloadTask implements IOptionDetails {
 		return failure;
 	}
 
-	public boolean isOptional() {
+	boolean isOptional() {
 		if (metadata.linkedFile != null) {
 			return metadata.linkedFile.isOptional();
 		}
 		return false;
 	}
 
-	public boolean isNewOptional() {
+	boolean isNewOptional() {
 		return isOptional() && this.newOptional;
 	}
 
-	public boolean correctSide() {
+	boolean correctSide() {
 		if (metadata.linkedFile != null) {
 			return metadata.linkedFile.side.hasSide(downloadSide);
 		}
@@ -231,7 +232,7 @@ class DownloadTask implements IOptionDetails {
 		cachedFile.optionValue = value;
 	}
 
-	public static List<DownloadTask> createTasksFromIndex(IndexFile index, String defaultFormat, UpdateManager.Options.Side downloadSide) {
+	static List<DownloadTask> createTasksFromIndex(IndexFile index, String defaultFormat, UpdateManager.Options.Side downloadSide) {
 		ArrayList<DownloadTask> tasks = new ArrayList<>();
 		for (IndexFile.File file : index.files) {
 			tasks.add(new DownloadTask(file, defaultFormat, downloadSide));
