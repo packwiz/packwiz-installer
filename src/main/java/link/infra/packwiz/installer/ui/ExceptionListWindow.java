@@ -4,11 +4,7 @@ import link.infra.packwiz.installer.ui.IExceptionDetails.ExceptionListResult;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -19,16 +15,15 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class ExceptionListWindow extends JDialog {
+class ExceptionListWindow extends JDialog {
 
 	private static final long serialVersionUID = 1L;
-	private final JPanel contentPanel = new JPanel();
 	private final JTextArea lblExceptionStacktrace;
 
 	/**
 	 * Create the dialog.
 	 */
-	public ExceptionListWindow(List<IExceptionDetails> eList, CompletableFuture<ExceptionListResult> future, int numTotal, JFrame parentWindow) {
+	ExceptionListWindow(List<IExceptionDetails> eList, CompletableFuture<ExceptionListResult> future, int numTotal, JFrame parentWindow) {
 		super(parentWindow, "Failed file downloads", true);
 
 		setBounds(100, 100, 540, 340);
@@ -43,6 +38,7 @@ public class ExceptionListWindow extends JDialog {
 				errorPanel.add(lblWarning);
 			}
 		}
+		JPanel contentPanel = new JPanel();
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
 		getContentPane().add(contentPanel, BorderLayout.CENTER);
 		contentPanel.setLayout(new BorderLayout(0, 0));
@@ -65,24 +61,21 @@ public class ExceptionListWindow extends JDialog {
 				splitPane.setRightComponent(scrollPane);
 			}
 			{
-				JList<String> list = new JList<String>();
+				JList<String> list = new JList<>();
 				list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 				list.setBorder(new EmptyBorder(5, 5, 5, 5));
 				ExceptionListModel listModel = new ExceptionListModel(eList);
 				list.setModel(listModel);
-				list.addListSelectionListener(new ListSelectionListener() {
-					@Override
-					public void valueChanged(ListSelectionEvent e) {
-						int i = list.getSelectedIndex();
-						if (i > -1) {
-							StringWriter sw = new StringWriter();
-							listModel.getExceptionAt(i).printStackTrace(new PrintWriter(sw));
-							lblExceptionStacktrace.setText(sw.toString());
-							// Scroll to the top
-							lblExceptionStacktrace.setCaretPosition(0);
-						} else {
-							lblExceptionStacktrace.setText("Select a file");
-						}
+				list.addListSelectionListener(e -> {
+					int i = list.getSelectedIndex();
+					if (i > -1) {
+						StringWriter sw = new StringWriter();
+						listModel.getExceptionAt(i).printStackTrace(new PrintWriter(sw));
+						lblExceptionStacktrace.setText(sw.toString());
+						// Scroll to the top
+						lblExceptionStacktrace.setCaretPosition(0);
+					} else {
+						lblExceptionStacktrace.setText("Select a file");
 					}
 				});
 				JScrollPane scrollPane = new JScrollPane(list);
@@ -100,36 +93,27 @@ public class ExceptionListWindow extends JDialog {
 				{
 					JButton btnContinue = new JButton("Continue");
 					btnContinue.setToolTipText("Attempt to continue installing, excluding the failed downloads");
-					btnContinue.addActionListener(new ActionListener() {
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							future.complete(ExceptionListResult.CONTINUE);
-							ExceptionListWindow.this.dispose();
-						}
+					btnContinue.addActionListener(e -> {
+						future.complete(ExceptionListResult.CONTINUE);
+						ExceptionListWindow.this.dispose();
 					});
 					rightButtons.add(btnContinue);
 				}
 				{
 					JButton btnCancelLaunch = new JButton("Cancel launch");
 					btnCancelLaunch.setToolTipText("Stop launching the game");
-					btnCancelLaunch.addActionListener(new ActionListener() {
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							future.complete(ExceptionListResult.CANCEL);
-							ExceptionListWindow.this.dispose();
-						}
+					btnCancelLaunch.addActionListener(e -> {
+						future.complete(ExceptionListResult.CANCEL);
+						ExceptionListWindow.this.dispose();
 					});
 					rightButtons.add(btnCancelLaunch);
 				}
 				{
 					JButton btnIgnoreUpdate = new JButton("Ignore update");
 					btnIgnoreUpdate.setToolTipText("Start the game without attempting to update");
-					btnIgnoreUpdate.addActionListener(new ActionListener() {
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							future.complete(ExceptionListResult.IGNORE);
-							ExceptionListWindow.this.dispose();
-						}
+					btnIgnoreUpdate.addActionListener(e -> {
+						future.complete(ExceptionListResult.IGNORE);
+						ExceptionListWindow.this.dispose();
 					});
 					rightButtons.add(btnIgnoreUpdate);
 					{
@@ -145,14 +129,11 @@ public class ExceptionListWindow extends JDialog {
 							boolean supported = Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE);
 							btnReportIssue.setEnabled(supported);
 							if (supported) {
-								btnReportIssue.addActionListener(new ActionListener() {
-									@Override
-									public void actionPerformed(ActionEvent e) {
-										try {
-											Desktop.getDesktop().browse(new URI("https://github.com/comp500/packwiz-installer/issues/new"));
-										} catch (IOException | URISyntaxException e1) {
-											// lol the button just won't work i guess
-										}
+								btnReportIssue.addActionListener(e -> {
+									try {
+										Desktop.getDesktop().browse(new URI("https://github.com/comp500/packwiz-installer/issues/new"));
+									} catch (IOException | URISyntaxException e1) {
+										// lol the button just won't work i guess
 									}
 								});
 							}
@@ -181,7 +162,7 @@ public class ExceptionListWindow extends JDialog {
 		private static final long serialVersionUID = 1L;
 		private final List<IExceptionDetails> details;
 
-		public ExceptionListModel(List<IExceptionDetails> details) {
+		ExceptionListModel(List<IExceptionDetails> details) {
 			this.details = details;
 		}
 
@@ -193,7 +174,7 @@ public class ExceptionListWindow extends JDialog {
 			return details.get(index).getName();
 		}
 
-		public Exception getExceptionAt(int index) {
+		Exception getExceptionAt(int index) {
 			return details.get(index).getException();
 		}
 	}

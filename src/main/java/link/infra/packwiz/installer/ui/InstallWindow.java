@@ -173,4 +173,15 @@ public class InstallWindow implements IUserInterface {
 		return future;
 	}
 
+	@Override
+	public Future<IExceptionDetails.ExceptionListResult> showExceptions(List<IExceptionDetails> opts, int numTotal) {
+		CompletableFuture<IExceptionDetails.ExceptionListResult> future = new CompletableFuture<>();
+		EventQueue.invokeLater(() -> {
+			ExceptionListWindow dialog = new ExceptionListWindow(opts, future, numTotal, frmPackwizlauncher);
+			dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+			dialog.setVisible(true);
+		});
+		return future;
+	}
+
 }
