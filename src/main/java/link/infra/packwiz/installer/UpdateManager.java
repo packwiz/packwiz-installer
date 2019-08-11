@@ -16,6 +16,7 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import link.infra.packwiz.installer.ui.IExceptionDetails;
 import link.infra.packwiz.installer.ui.IUserInterface;
+import link.infra.packwiz.installer.ui.InputStateHandler;
 import link.infra.packwiz.installer.ui.InstallProgress;
 import okio.Okio;
 import okio.Source;
@@ -33,6 +34,7 @@ public class UpdateManager {
 	public final IUserInterface ui;
 	private boolean cancelled;
 	private boolean cancelledStartGame = false;
+	private InputStateHandler stateHandler;
 
 	public static class Options {
 		SpaceSafeURI downloadURI = null;
@@ -92,9 +94,10 @@ public class UpdateManager {
 		}
 	}
 
-	UpdateManager(Options opts, IUserInterface ui) {
+	UpdateManager(Options opts, IUserInterface ui, InputStateHandler inputStateHandler) {
 		this.opts = opts;
 		this.ui = ui;
+		this.stateHandler = inputStateHandler;
 		this.start();
 	}
 
@@ -114,6 +117,11 @@ public class UpdateManager {
 			return;
 		}
 
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
+			handleCancellation();
+		}
+
 		ui.submitProgress(new InstallProgress("Loading pack file..."));
 		GeneralHashingSource packFileSource;
 		try {
@@ -131,6 +139,11 @@ public class UpdateManager {
 		} catch (IllegalStateException e) {
 			ui.handleExceptionAndExit(e);
 			return;
+		}
+
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
+			handleCancellation();
 		}
 
 		ui.submitProgress(new InstallProgress("Checking local files..."));
@@ -162,10 +175,17 @@ public class UpdateManager {
 		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack is already up to date!");
 			// todo: --force?
-			return;
+			if (!stateHandler.getOptionsButton()) {
+				return;
+			}
 		}
 
 		System.out.println("Modpack name: " + pf.name);
+
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
+			handleCancellation();
+		}
 
 		try {
 			// This is badly written, I'll probably heavily refactor it at some point
@@ -175,15 +195,7 @@ public class UpdateManager {
 			ui.handleExceptionAndExit(e1);
 		}
 
-		if (cancelled) {
-			System.out.println("Update cancelled by user!");
-			System.exit(1);
-			return;
-		} else if (cancelledStartGame) {
-			System.out.println("Update cancelled by user! Continuing to start game...");
-			System.exit(0);
-			return;
-		}
+		handleCancellation();
 
 		// TODO: update MMC params, java args etc
 
@@ -205,7 +217,9 @@ public class UpdateManager {
 	private void processIndex(SpaceSafeURI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<SpaceSafeURI> invalidatedUris) {
 		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack files are already up to date!");
-			return;
+			if (!stateHandler.getOptionsButton()) {
+				return;
+			}
 		}
 		manifest.indexFileHash = indexHash;
 
@@ -230,6 +244,11 @@ public class UpdateManager {
 		if (!indexFileSource.hashIsEqual(indexHash)) {
 			// TODO: throw exception
 			System.out.println("I was meant to put an error message here but I'll do that later");
+			return;
+		}
+
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
 			return;
 		}
 
@@ -269,13 +288,21 @@ public class UpdateManager {
 				}
 			}
 		}
+
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
+			return;
+		}
 		ui.submitProgress(new InstallProgress("Comparing new files..."));
 
-		// TODO: progress bar, parallelify
+		// TODO: progress bar?
 		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side);
 		// If the side changes, invalidate EVERYTHING just in case
 		// Might not be needed, but done just to be safe
 		boolean invalidateAll = !opts.side.equals(manifest.cachedSide);
+		if (invalidateAll) {
+			System.out.println("Side changed, invalidating all mods");
+		}
 		tasks.forEach(f -> {
 			// TODO: should linkedfile be checked as well? should this be done in the download section?
 			if (invalidateAll) {
@@ -291,7 +318,14 @@ public class UpdateManager {
 			// If it is null, the DownloadTask will make a new empty cachedFile
 			f.updateFromCache(file);
 		});
-		tasks.forEach(f -> f.downloadMetadata(indexFile, indexUri));
+
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
+			return;
+		}
+
+		// Let's hope downloadMetadata is a pure function!!!
+		tasks.parallelStream().forEach(f -> f.downloadMetadata(indexFile, indexUri));
 
 		List<IExceptionDetails> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 		if (failedTasks.size() > 0) {
@@ -315,10 +349,15 @@ public class UpdateManager {
 			}
 		}
 
+		if (stateHandler.getCancelButton()) {
+			showCancellationDialog();
+			return;
+		}
+
 		List<DownloadTask> nonFailedFirstTasks = tasks.stream().filter(t -> t.getException() == null).collect(Collectors.toList());
 		List<DownloadTask> optionTasks = nonFailedFirstTasks.stream().filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
 		// If options changed, present all options again
-		if (optionTasks.stream().anyMatch(DownloadTask::isNewOptional)) {
+		if (stateHandler.getOptionsButton() || optionTasks.stream().anyMatch(DownloadTask::isNewOptional)) {
 			// new ArrayList is requires so it's an IOptionDetails rather than a DownloadTask list
 			Future<Boolean> cancelledResult = ui.showOptions(new ArrayList<>(optionTasks));
 			try {
@@ -332,6 +371,7 @@ public class UpdateManager {
 				ui.handleExceptionAndExit(e);
 			}
 		}
+		ui.disableOptionsButton();
 
 		// TODO: different thread pool type?
 		ExecutorService threadPool = Executors.newFixedThreadPool(10);
@@ -355,7 +395,7 @@ public class UpdateManager {
 				if (task.getException() != null) {
 					ManifestFile.File file = task.cachedFile.getRevert();
 					if (file != null) {
-						manifest.cachedFiles.put(task.metadata.file, file);
+						manifest.cachedFiles.putIfAbsent(task.metadata.file, file);
 					}
 				} else {
 					// idiot, if it wasn't there in the first place it won't magically appear there
@@ -376,6 +416,13 @@ public class UpdateManager {
 				progress = "Failed to download, unknown reason";
 			}
 			ui.submitProgress(new InstallProgress(progress, i + 1, tasks.size()));
+
+			if (stateHandler.getCancelButton()) {
+				// Stop all tasks, don't launch the game (it's in an invalid state!)
+				threadPool.shutdown();
+				cancelled = true;
+				return;
+			}
 		}
 
 		List<IExceptionDetails> failedTasks2ElectricBoogaloo = nonFailedFirstTasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
@@ -397,6 +444,36 @@ public class UpdateManager {
 				case IGNORE:
 					cancelledStartGame = true;
 			}
+		}
+	}
+
+	private void showCancellationDialog() {
+		IExceptionDetails.ExceptionListResult exceptionListResult;
+		try {
+			exceptionListResult = ui.showCancellationDialog().get();
+		} catch (InterruptedException | ExecutionException e) {
+			// Interrupted means cancelled???
+			ui.handleExceptionAndExit(e);
+			return;
+		}
+		switch (exceptionListResult) {
+			case CONTINUE:
+				throw new RuntimeException("Continuation not allowed here!");
+			case CANCEL:
+				cancelled = true;
+				return;
+			case IGNORE:
+				cancelledStartGame = true;
+		}
+	}
+
+	private void handleCancellation() {
+		if (cancelled) {
+			System.out.println("Update cancelled by user!");
+			System.exit(1);
+		} else if (cancelledStartGame) {
+			System.out.println("Update cancelled by user! Continuing to start game...");
+			System.exit(0);
 		}
 	}
 }

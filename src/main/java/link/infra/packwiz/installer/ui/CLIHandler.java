@@ -12,7 +12,7 @@ public class CLIHandler implements IUserInterface {
 	}
 
 	@Override
-	public void show() {}
+	public void show(InputStateHandler h) {}
 
 	@Override
 	public void submitProgress(InstallProgress progress) {

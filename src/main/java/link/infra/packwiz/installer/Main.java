@@ -3,6 +3,7 @@ package link.infra.packwiz.installer;
 import link.infra.packwiz.installer.metadata.SpaceSafeURI;
 import link.infra.packwiz.installer.ui.CLIHandler;
 import link.infra.packwiz.installer.ui.IUserInterface;
+import link.infra.packwiz.installer.ui.InputStateHandler;
 import link.infra.packwiz.installer.ui.InstallWindow;
 import org.apache.commons.cli.*;
 
@@ -10,10 +11,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.net.URISyntaxException;
 
+@SuppressWarnings("unused")
 public class Main {
 
 	// Actual main() is in RequiresBootstrap!
-
+	@SuppressWarnings("unused")
 	public Main(String[] args) {
 		// Big overarching try/catch just in case everything breaks
 		try {
@@ -79,7 +81,8 @@ public class Main {
 			ui.setTitle(title);
 		}
 
-		ui.show();
+		InputStateHandler inputStateHandler = new InputStateHandler();
+		ui.show(inputStateHandler);
 
 		UpdateManager.Options uOptions = new UpdateManager.Options();
 
@@ -111,7 +114,7 @@ public class Main {
 		try {
 			ui.executeManager(() -> {
 				try {
-					new UpdateManager(uOptions, ui);
+					new UpdateManager(uOptions, ui, inputStateHandler);
 				} catch (Exception e) {
 					// TODO: better error message?
 					ui.handleExceptionAndExit(e);

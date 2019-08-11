@@ -28,7 +28,6 @@ public class IndexFile {
 
 		public transient ModFile linkedFile;
 		public transient SpaceSafeURI linkedFileURI;
-		public transient boolean optionValue = true;
 
 		public void downloadMeta(IndexFile parentIndexFile, SpaceSafeURI indexUri) throws Exception {
 			if (!metafile) {

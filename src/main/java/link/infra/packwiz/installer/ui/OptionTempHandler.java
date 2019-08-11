@@ -1,7 +1,7 @@
 package link.infra.packwiz.installer.ui;
 
 // Serves as a proxy for IOptionDetails, so that setOptionValue isn't called until OK is clicked
-public class OptionTempHandler implements IOptionDetails {
+class OptionTempHandler implements IOptionDetails {
 	private final IOptionDetails opt;
 	private boolean tempValue;
 

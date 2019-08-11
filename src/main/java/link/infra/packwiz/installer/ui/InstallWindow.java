@@ -13,18 +13,21 @@ public class InstallWindow implements IUserInterface {
 	private JFrame frmPackwizlauncher;
 	private JLabel lblProgresslabel;
 	private JProgressBar progressBar;
+	private InputStateHandler inputStateHandler;
 
 	private String title = "Updating modpack...";
 	private SwingWorkerButWithPublicPublish<Void, InstallProgress> worker;
 	private AtomicBoolean aboutToCrash = new AtomicBoolean();
+	private JButton btnOptions;
 
 	@Override
-	public void show() {
+	public void show(InputStateHandler handler) {
+		this.inputStateHandler = handler;
 		EventQueue.invokeLater(() -> {
 			try {
 				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-				InstallWindow.this.initialize();
-				InstallWindow.this.frmPackwizlauncher.setVisible(true);
+				initialize();
+				frmPackwizlauncher.setVisible(true);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -60,7 +63,12 @@ public class InstallWindow implements IUserInterface {
 		GridBagLayout gbl_panel_1 = new GridBagLayout();
 		panel_1.setLayout(gbl_panel_1);
 
-		JButton btnOptions = new JButton("Configure...");
+		btnOptions = new JButton("Optional mods...");
+		btnOptions.addActionListener(e -> {
+			btnOptions.setText("Loading...");
+			btnOptions.setEnabled(false);
+			inputStateHandler.pressOptionsButton();
+		});
 		btnOptions.setAlignmentX(Component.CENTER_ALIGNMENT);
 		GridBagConstraints gbc_btnOptions = new GridBagConstraints();
 		gbc_btnOptions.gridx = 0;
@@ -68,14 +76,9 @@ public class InstallWindow implements IUserInterface {
 		panel_1.add(btnOptions, gbc_btnOptions);
 
 		JButton btnCancel = new JButton("Cancel");
-		btnCancel.addActionListener(event -> {
-			if (worker != null) {
-				worker.cancel(true);
-			}
-			frmPackwizlauncher.dispose();
-			// TODO: show window to ask user what to do
-			System.out.println("Update process cancelled by user!");
-			System.exit(1);
+		btnCancel.addActionListener(e -> {
+			btnCancel.setEnabled(false);
+			inputStateHandler.pressCancelButton();
 		});
 		btnCancel.setAlignmentX(Component.CENTER_ALIGNMENT);
 		GridBagConstraints gbc_btnCancel = new GridBagConstraints();
@@ -113,12 +116,23 @@ public class InstallWindow implements IUserInterface {
 	public void setTitle(String title) {
 		this.title = title;
 		if (frmPackwizlauncher != null) {
-			EventQueue.invokeLater(() -> InstallWindow.this.frmPackwizlauncher.setTitle(title));
+			EventQueue.invokeLater(() -> frmPackwizlauncher.setTitle(title));
 		}
 	}
 
 	@Override
 	public void submitProgress(InstallProgress progress) {
+		StringBuilder sb = new StringBuilder();
+		if (progress.hasProgress) {
+			sb.append('(');
+			sb.append(progress.progress);
+			sb.append('/');
+			sb.append(progress.progressTotal);
+			sb.append(") ");
+		}
+		sb.append(progress.message);
+		// TODO: better logging library?
+		System.out.println(sb.toString());
 		if (worker != null) {
 			worker.publishPublic(progress);
 		}
@@ -190,4 +204,25 @@ public class InstallWindow implements IUserInterface {
 		return future;
 	}
 
+	@Override
+	public void disableOptionsButton() {
+		if (btnOptions != null) {
+			btnOptions.setText("Optional mods...");
+			btnOptions.setEnabled(false);
+		}
+	}
+
+	@Override
+	public Future<IExceptionDetails.ExceptionListResult> showCancellationDialog() {
+		CompletableFuture<IExceptionDetails.ExceptionListResult> future = new CompletableFuture<>();
+		EventQueue.invokeLater(() -> {
+			Object[] buttons = {"Quit", "Ignore"};
+			int result = JOptionPane.showOptionDialog(frmPackwizlauncher,
+					"The installation was cancelled. Would you like to quit the game, or ignore the update and start the game?",
+					"Cancelled installation",
+					JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, buttons, buttons[0]);
+			future.complete(result == 0 ? IExceptionDetails.ExceptionListResult.CANCEL : IExceptionDetails.ExceptionListResult.IGNORE);
+		});
+		return future;
+	}
 }
