@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer;
 
+import link.infra.packwiz.installer.metadata.SpaceSafeURI;
 import link.infra.packwiz.installer.ui.CLIHandler;
 import link.infra.packwiz.installer.ui.IUserInterface;
 import link.infra.packwiz.installer.ui.InstallWindow;
@@ -7,7 +8,6 @@ import org.apache.commons.cli.*;
 
 import javax.swing.*;
 import java.awt.*;
-import java.net.URI;
 import java.net.URISyntaxException;
 
 public class Main {
@@ -37,7 +37,7 @@ public class Main {
 		}
 	}
 
-	protected void startup(String[] args) {
+	private void startup(String[] args) {
 		Options options = new Options();
 		addNonBootstrapOptions(options);
 		addBootstrapOptions(options);
@@ -99,7 +99,7 @@ public class Main {
 		}
 
 		try {
-			uOptions.downloadURI = new URI(unparsedArgs[0]);
+			uOptions.downloadURI = new SpaceSafeURI(unparsedArgs[0]);
 		} catch (URISyntaxException e) {
 			// TODO: better error message?
 			ui.handleExceptionAndExit(e);
@@ -124,6 +124,7 @@ public class Main {
 	}
 
 	// Called by packwiz-installer-bootstrap to set up the help command
+	@SuppressWarnings("WeakerAccess")
 	public static void addNonBootstrapOptions(Options options) {
 		options.addOption("s", "side", true, "Side to install mods from (client/server, defaults to client)");
 		options.addOption(null, "title", true, "Title of the installer window");

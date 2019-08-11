@@ -1,23 +1,23 @@
 package link.infra.packwiz.installer.request;
 
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-
+import link.infra.packwiz.installer.metadata.SpaceSafeURI;
 import link.infra.packwiz.installer.request.handlers.RequestHandlerGithub;
 import link.infra.packwiz.installer.request.handlers.RequestHandlerHTTP;
 import okio.Source;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public abstract class HandlerManager {
 	
-	public static List<IRequestHandler> handlers = new ArrayList<IRequestHandler>();
+	private static List<IRequestHandler> handlers = new ArrayList<>();
 	
 	static {
 		handlers.add(new RequestHandlerGithub());
 		handlers.add(new RequestHandlerHTTP());
 	}
 	
-	public static URI getNewLoc(URI base, URI loc) {
+	public static SpaceSafeURI getNewLoc(SpaceSafeURI base, SpaceSafeURI loc) {
 		if (loc == null) return null;
 		if (base != null) {
 			loc = base.resolve(loc);
@@ -35,7 +35,7 @@ public abstract class HandlerManager {
 	// Zip handler discards once read, requesting multiple times on other handlers would cause multiple downloads
 	// Caching system? Copy from already downloaded files?
 
-	public static Source getFileSource(URI loc) throws Exception {
+	public static Source getFileSource(SpaceSafeURI loc) throws Exception {
 		for (IRequestHandler handler : handlers) {
 			if (handler.matchesHandler(loc)) {
 				Source src = handler.getFileSource(loc);

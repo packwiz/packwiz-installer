@@ -3,13 +3,12 @@ package link.infra.packwiz.installer.metadata;
 import link.infra.packwiz.installer.UpdateManager;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 
-import java.net.URI;
 import java.util.Map;
 
 public class ManifestFile {
 	public Hash packFileHash = null;
 	public Hash indexFileHash = null;
-	public Map<URI, File> cachedFiles;
+	public Map<SpaceSafeURI, File> cachedFiles;
 	// If the side changes, EVERYTHING invalidates. FUN!!!
 	public UpdateManager.Options.Side cachedSide = UpdateManager.Options.Side.CLIENT;
 

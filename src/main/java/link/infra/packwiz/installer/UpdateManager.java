@@ -9,6 +9,7 @@ import com.moandjiezana.toml.Toml;
 import link.infra.packwiz.installer.metadata.IndexFile;
 import link.infra.packwiz.installer.metadata.ManifestFile;
 import link.infra.packwiz.installer.metadata.PackFile;
+import link.infra.packwiz.installer.metadata.SpaceSafeURI;
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
@@ -20,7 +21,6 @@ import okio.Okio;
 import okio.Source;
 
 import java.io.*;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -35,7 +35,7 @@ public class UpdateManager {
 	private boolean cancelledStartGame = false;
 
 	public static class Options {
-		URI downloadURI = null;
+		SpaceSafeURI downloadURI = null;
 		String manifestFile = "packwiz.json"; // TODO: make configurable
 		String packFolder = ".";
 		Side side = Side.CLIENT;
@@ -136,9 +136,9 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Checking local files..."));
 
 		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
-		List<URI> invalidatedUris = new ArrayList<>();
+		List<SpaceSafeURI> invalidatedUris = new ArrayList<>();
 		if (manifest.cachedFiles != null) {
-			for (Map.Entry<URI, ManifestFile.File> entry : manifest.cachedFiles.entrySet()) {
+			for (Map.Entry<SpaceSafeURI, ManifestFile.File> entry : manifest.cachedFiles.entrySet()) {
 				boolean invalid = false;
 				// if isn't optional, or is optional but optionValue == true
 				if (!entry.getValue().isOptional || entry.getValue().optionValue) {
@@ -152,7 +152,7 @@ public class UpdateManager {
 					}
 				}
 				if (invalid) {
-					URI fileUri = entry.getKey();
+					SpaceSafeURI fileUri = entry.getKey();
 					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
 					invalidatedUris.add(fileUri);
 				}
@@ -202,7 +202,7 @@ public class UpdateManager {
 		// TODO: implement
 	}
 
-	private void processIndex(URI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<URI> invalidatedUris) {
+	private void processIndex(SpaceSafeURI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<SpaceSafeURI> invalidatedUris) {
 		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack files are already up to date!");
 			return;
@@ -238,9 +238,9 @@ public class UpdateManager {
 		}
 
 		ui.submitProgress(new InstallProgress("Checking local files..."));
-		Iterator<Map.Entry<URI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
+		Iterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
 		while (it.hasNext()) {
-			Map.Entry<URI, ManifestFile.File> entry = it.next();
+			Map.Entry<SpaceSafeURI, ManifestFile.File> entry = it.next();
 			if (entry.getValue().cachedLocation != null) {
 				boolean alreadyDeleted = false;
 				// Delete if option value has been set to false

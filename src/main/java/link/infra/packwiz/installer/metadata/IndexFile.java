@@ -1,6 +1,5 @@
 package link.infra.packwiz.installer.metadata;
 
-import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.moandjiezana.toml.Toml;
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
@@ -10,7 +9,6 @@ import link.infra.packwiz.installer.request.HandlerManager;
 import okio.Okio;
 import okio.Source;
 
-import java.net.URI;
 import java.nio.file.Paths;
 import java.util.List;
 
@@ -20,20 +18,19 @@ public class IndexFile {
 	public List<File> files;
 	
 	public static class File {
-		@JsonAdapter(SpaceSafeURIParser.class)
-		public URI file;
+		public SpaceSafeURI file;
 		@SerializedName("hash-format")
 		public String hashFormat;
 		public String hash;
-		public URI alias;
+		public SpaceSafeURI alias;
 		public boolean metafile;
 		public boolean preserve;
 
 		public transient ModFile linkedFile;
-		public transient URI linkedFileURI;
+		public transient SpaceSafeURI linkedFileURI;
 		public transient boolean optionValue = true;
 
-		public void downloadMeta(IndexFile parentIndexFile, URI indexUri) throws Exception {
+		public void downloadMeta(IndexFile parentIndexFile, SpaceSafeURI indexUri) throws Exception {
 			if (!metafile) {
 				return;
 			}
@@ -51,14 +48,14 @@ public class IndexFile {
 			}
 		}
 
-		public Source getSource(URI indexUri) throws Exception {
+		public Source getSource(SpaceSafeURI indexUri) throws Exception {
 			if (metafile) {
 				if (linkedFile == null) {
 					throw new Exception("Linked file doesn't exist!");
 				}
 				return linkedFile.getSource(linkedFileURI);
 			} else {
-				URI newLoc = HandlerManager.getNewLoc(indexUri, file);
+				SpaceSafeURI newLoc = HandlerManager.getNewLoc(indexUri, file);
 				if (newLoc == null) {
 					throw new Exception("Index file URI is invalid");
 				}
@@ -94,13 +91,13 @@ public class IndexFile {
 			return "Invalid file";
 		}
 
-		public URI getDestURI() {
+		public SpaceSafeURI getDestURI() {
 			if (alias != null) {
 				return alias;
 			}
 			if (metafile && linkedFile != null) {
 				// TODO: URIs are bad
-				return file.resolve(linkedFile.filename.replace(" ", "%20"));
+				return file.resolve(linkedFile.filename);
 			} else {
 				return file;
 			}

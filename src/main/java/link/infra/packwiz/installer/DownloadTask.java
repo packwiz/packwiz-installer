@@ -2,6 +2,7 @@ package link.infra.packwiz.installer;
 
 import link.infra.packwiz.installer.metadata.IndexFile;
 import link.infra.packwiz.installer.metadata.ManifestFile;
+import link.infra.packwiz.installer.metadata.SpaceSafeURI;
 import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
@@ -12,7 +13,6 @@ import okio.Okio;
 import okio.Source;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -74,7 +74,7 @@ class DownloadTask implements IOptionDetails, IExceptionDetails {
 		}
 	}
 
-	void downloadMetadata(IndexFile parentIndexFile, URI indexUri) {
+	void downloadMetadata(IndexFile parentIndexFile, SpaceSafeURI indexUri) {
 		if (failure != null) return;
 		if (metadataRequired) {
 			try {
@@ -101,7 +101,7 @@ class DownloadTask implements IOptionDetails, IExceptionDetails {
 		}
 	}
 
-	void download(String packFolder, URI indexUri) {
+	void download(String packFolder, SpaceSafeURI indexUri) {
 		if (failure != null) return;
 
 		// Ensure it is removed

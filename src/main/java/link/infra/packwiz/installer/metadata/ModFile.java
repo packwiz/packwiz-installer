@@ -1,16 +1,13 @@
 package link.infra.packwiz.installer.metadata;
 
-import java.net.URI;
-import java.util.Map;
-
-import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
-
 import link.infra.packwiz.installer.UpdateManager.Options.Side;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 import link.infra.packwiz.installer.metadata.hash.HashUtils;
 import link.infra.packwiz.installer.request.HandlerManager;
 import okio.Source;
+
+import java.util.Map;
 
 public class ModFile {
 	public String name;
@@ -19,8 +16,7 @@ public class ModFile {
 
 	public Download download;
 	public static class Download {
-		@JsonAdapter(SpaceSafeURIParser.class)
-		public URI url;
+		public SpaceSafeURI url;
 		@SerializedName("hash-format")
 		public String hashFormat;
 		public String hash;
@@ -36,14 +32,14 @@ public class ModFile {
 		public boolean defaultValue;
 	}
 
-	public Source getSource(URI baseLoc) throws Exception {
+	public Source getSource(SpaceSafeURI baseLoc) throws Exception {
 		if (download == null) {
 			throw new Exception("Metadata file doesn't have download");
 		}
 		if (download.url == null) {
 			throw new Exception("Metadata file doesn't have a download URI");
 		}
-		URI newLoc = HandlerManager.getNewLoc(baseLoc, download.url);
+		SpaceSafeURI newLoc = HandlerManager.getNewLoc(baseLoc, download.url);
 		if (newLoc == null) {
 			throw new Exception("Metadata file URI is invalid");
 		}

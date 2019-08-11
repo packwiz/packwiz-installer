@@ -1,12 +1,12 @@
 package link.infra.packwiz.installer.request.handlers;
 
+import link.infra.packwiz.installer.metadata.SpaceSafeURI;
 import okio.Buffer;
 import okio.BufferedSource;
 import okio.Okio;
 import okio.Source;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +35,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 	private class ZipReader {
 		
 		private final ZipInputStream zis;
-		private final Map<URI, Buffer> readFiles = new HashMap<>();
+		private final Map<SpaceSafeURI, Buffer> readFiles = new HashMap<>();
 		// Write lock implies access to ZipInputStream - only 1 thread must read at a time!
 		final ReentrantLock filesLock = new ReentrantLock();
 		private ZipEntry entry;
@@ -55,14 +55,14 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 		}
 		
 		// File lock must be obtained before calling this function
-		private Buffer findFile(URI loc) throws IOException, URISyntaxException {
+		private Buffer findFile(SpaceSafeURI loc) throws IOException, URISyntaxException {
 			while (true) {
 				entry = zis.getNextEntry();
 				if (entry == null) {
 					return null;
 				}
 				Buffer data = readCurrFile();
-				URI fileLoc = new URI(removeFolder(entry.getName()));
+				SpaceSafeURI fileLoc = new SpaceSafeURI(removeFolder(entry.getName()));
 				if (loc.equals(fileLoc)) {
 					return data;
 				} else {
@@ -71,7 +71,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			}
 		}
 		
-		Source getFileSource(URI loc) throws Exception {
+		Source getFileSource(SpaceSafeURI loc) throws Exception {
 			filesLock.lock();
 			// Assume files are only read once, allow GC by removing
 			Buffer file = readFiles.remove(loc);
@@ -84,10 +84,10 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 			filesLock.unlock();
 			return file;
 		}
-		
-		URI findInZip(Predicate<URI> matches) throws Exception {
+
+		SpaceSafeURI findInZip(Predicate<SpaceSafeURI> matches) throws Exception {
 			filesLock.lock();
-			for (URI file : readFiles.keySet()) {
+			for (SpaceSafeURI file : readFiles.keySet()) {
 				if (matches.test(file)) {
 					filesLock.unlock();
 					return file;
@@ -101,7 +101,7 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 					return null;
 				}
 				Buffer data = readCurrFile();
-				URI fileLoc = new URI(removeFolder(entry.getName()));
+				SpaceSafeURI fileLoc = new SpaceSafeURI(removeFolder(entry.getName()));
 				readFiles.put(fileLoc, data);
 				if (matches.test(fileLoc)) {
 					filesLock.unlock();
@@ -112,19 +112,19 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 		
 	}
 	
-	private final Map<URI, ZipReader> cache = new HashMap<>();
+	private final Map<SpaceSafeURI, ZipReader> cache = new HashMap<>();
 	private final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock();
 	
-	protected abstract URI getZipUri(URI loc) throws Exception;
+	protected abstract SpaceSafeURI getZipUri(SpaceSafeURI loc) throws Exception;
 	
-	protected abstract URI getLocationInZip(URI loc) throws Exception;
+	protected abstract SpaceSafeURI getLocationInZip(SpaceSafeURI loc) throws Exception;
 	
 	@Override
-	public abstract boolean matchesHandler(URI loc);
+	public abstract boolean matchesHandler(SpaceSafeURI loc);
 
 	@Override
-	public Source getFileSource(URI loc) throws Exception {
-		URI zipUri = getZipUri(loc);
+	public Source getFileSource(SpaceSafeURI loc) throws Exception {
+		SpaceSafeURI zipUri = getZipUri(loc);
 		cacheLock.readLock().lock();
 		ZipReader zr = cache.get(zipUri);
 		cacheLock.readLock().unlock();
@@ -147,8 +147,8 @@ public abstract class RequestHandlerZip extends RequestHandlerHTTP {
 		return zr.getFileSource(getLocationInZip(loc));
 	}
 	
-	protected URI findInZip(URI loc, Predicate<URI> matches) throws Exception {
-		URI zipUri = getZipUri(loc);
+	protected SpaceSafeURI findInZip(SpaceSafeURI loc, Predicate<SpaceSafeURI> matches) throws Exception {
+		SpaceSafeURI zipUri = getZipUri(loc);
 		cacheLock.readLock().lock();
 		ZipReader zr = cache.get(zipUri);
 		cacheLock.readLock().unlock();
