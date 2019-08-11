@@ -61,6 +61,11 @@ public class SpaceSafeURI implements Comparable<SpaceSafeURI>, Serializable {
 	}
 
 	@Override
+	public int hashCode() {
+		return u.hashCode();
+	}
+
+	@Override
 	public int compareTo(SpaceSafeURI uri) {
 		return u.compareTo(uri.u);
 	}
