@@ -296,6 +296,10 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Comparing new files..."));
 
 		// TODO: progress bar?
+		if (indexFile.files == null || indexFile.files.size() == 0) {
+			System.out.println("Warning: Index is empty!");
+			indexFile.files = new ArrayList<>();
+		}
 		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side);
 		// If the side changes, invalidate EVERYTHING just in case
 		// Might not be needed, but done just to be safe
@@ -328,7 +332,7 @@ public class UpdateManager {
 		tasks.parallelStream().forEach(f -> f.downloadMetadata(indexFile, indexUri));
 
 		List<IExceptionDetails> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
-		if (failedTasks.size() > 0) {
+		if (!failedTasks.isEmpty()) {
 			IExceptionDetails.ExceptionListResult exceptionListResult;
 			try {
 				exceptionListResult = ui.showExceptions(failedTasks, tasks.size(), true).get();
