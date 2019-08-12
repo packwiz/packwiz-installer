@@ -35,6 +35,7 @@ public class UpdateManager {
 	private boolean cancelled;
 	private boolean cancelledStartGame = false;
 	private InputStateHandler stateHandler;
+	private boolean errorsOccurred = false;
 
 	public static class Options {
 		SpaceSafeURI downloadURI = null;
@@ -199,7 +200,14 @@ public class UpdateManager {
 
 		// TODO: update MMC params, java args etc
 
-		manifest.packFileHash = packFileSource.getHash();
+		// If there were errors, don't write the manifest/index hashes, to ensure they are rechecked later
+		if (errorsOccurred) {
+			manifest.indexFileHash = null;
+			manifest.packFileHash = null;
+		} else {
+			manifest.packFileHash = packFileSource.getHash();
+		}
+
 		manifest.cachedSide = opts.side;
 		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
 			gson.toJson(manifest, writer);
@@ -333,6 +341,7 @@ public class UpdateManager {
 
 		List<IExceptionDetails> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 		if (!failedTasks.isEmpty()) {
+			errorsOccurred = true;
 			IExceptionDetails.ExceptionListResult exceptionListResult;
 			try {
 				exceptionListResult = ui.showExceptions(failedTasks, tasks.size(), true).get();
@@ -430,7 +439,8 @@ public class UpdateManager {
 		}
 
 		List<IExceptionDetails> failedTasks2ElectricBoogaloo = nonFailedFirstTasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
-		if (failedTasks2ElectricBoogaloo.size() > 0) {
+		if (!failedTasks2ElectricBoogaloo.isEmpty()) {
+			errorsOccurred = true;
 			IExceptionDetails.ExceptionListResult exceptionListResult;
 			try {
 				exceptionListResult = ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size(), false).get();
