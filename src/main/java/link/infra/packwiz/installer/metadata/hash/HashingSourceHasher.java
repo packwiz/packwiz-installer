@@ -4,9 +4,9 @@ import okio.HashingSource;
 import okio.Source;
 
 public class HashingSourceHasher implements IHasher {
-	String type;
+	private String type;
 
-	public HashingSourceHasher(String type) {
+	HashingSourceHasher(String type) {
 		this.type = type;
 	}
 
@@ -15,7 +15,7 @@ public class HashingSourceHasher implements IHasher {
 		HashingSource delegateHashing;
 		HashingSourceHash value;
 
-		public HashingSourceGeneralHashingSource(HashingSource delegate) {
+		HashingSourceGeneralHashingSource(HashingSource delegate) {
 			super(delegate);
 			delegateHashing = delegate;
 		}
@@ -46,7 +46,7 @@ public class HashingSourceHasher implements IHasher {
 			}
 			HashingSourceHash objHash = (HashingSourceHash) obj;
 			if (value != null) {
-				return value.equals(objHash.value);
+				return value.equalsIgnoreCase(objHash.value);
 			} else {
 				return objHash.value == null;
 			}
@@ -71,9 +71,12 @@ public class HashingSourceHasher implements IHasher {
 	@Override
 	public GeneralHashingSource getHashingSource(Source delegate) {
 		switch (type) {
+			case "md5":
+				return new HashingSourceGeneralHashingSource(HashingSource.md5(delegate));
 			case "sha256":
-			return new HashingSourceGeneralHashingSource(HashingSource.sha256(delegate));
-			// TODO: support other hash types
+				return new HashingSourceGeneralHashingSource(HashingSource.sha256(delegate));
+			case "sha512":
+				return new HashingSourceGeneralHashingSource(HashingSource.sha512(delegate));
 		}
 		throw new RuntimeException("Invalid hash type provided");
 	}
