@@ -35,8 +35,14 @@ public class CLIHandler implements IUserInterface {
 	}
 
 	@Override
-	public Future<Boolean> showOptions(List<IOptionDetails> option) {
-		throw new RuntimeException("Optional mods not implemented for CLI! Make sure your optional mods are only on the client side!");
+	public Future<Boolean> showOptions(List<IOptionDetails> options) {
+		for (IOptionDetails opt : options) {
+			opt.setOptionValue(true);
+			System.out.println("Warning: accepting option " + opt.getName() + " as option choosing is not implemented in the CLI");
+		}
+		CompletableFuture<Boolean> future = new CompletableFuture<>();
+		future.complete(false); // Can't be cancelled!
+		return future;
 	}
 
 	@Override
