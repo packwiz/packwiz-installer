@@ -442,6 +442,9 @@ public class UpdateManager {
 			}
 		}
 
+		// Shut down the thread pool when the update is done
+		threadPool.shutdown();
+
 		List<IExceptionDetails> failedTasks2ElectricBoogaloo = nonFailedFirstTasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
 		if (!failedTasks2ElectricBoogaloo.isEmpty()) {
 			errorsOccurred = true;
