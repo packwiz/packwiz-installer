@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.metadata;
 
+import com.google.gson.annotations.JsonAdapter;
 import link.infra.packwiz.installer.UpdateManager;
 import link.infra.packwiz.installer.metadata.hash.Hash;
 
@@ -19,8 +20,12 @@ public class ManifestFile {
 		public Hash linkedFileHash = null;
 		public String cachedLocation = null;
 
+		@JsonAdapter(EfficientBooleanAdapter.class)
 		public boolean isOptional = false;
 		public boolean optionValue = true;
+
+		@JsonAdapter(EfficientBooleanAdapter.class)
+		public boolean onlyOtherSide = false;
 
 		// When an error occurs, the state needs to be reverted. To do this, I have a crude revert system.
 		public void backup() {
@@ -30,6 +35,7 @@ public class ManifestFile {
 			revert.cachedLocation = cachedLocation;
 			revert.isOptional = isOptional;
 			revert.optionValue = optionValue;
+			revert.onlyOtherSide = onlyOtherSide;
 		}
 
 		public File getRevert() {

@@ -97,6 +97,7 @@ class DownloadTask implements IOptionDetails, IExceptionDetails {
 					}
 				}
 				cachedFile.isOptional = isOptional();
+				cachedFile.onlyOtherSide = !correctSide();
 			}
 		}
 	}

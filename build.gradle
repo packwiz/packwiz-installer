@@ -50,21 +50,23 @@ task copyJar(type: Copy) {
 
 build.dependsOn copyJar
 
-githubRelease {
-    // IntelliJ u ok?
-    //noinspection GroovyAssignabilityCheck
-    owner "comp500"
-    //noinspection GroovyAssignabilityCheck
-    repo "packwiz-installer"
-    //noinspection GroovyAssignabilityCheck
-    tagName "${project.version}"
-    //noinspection GroovyAssignabilityCheck
-    releaseName "Release ${project.version}"
-    //noinspection GroovyAssignabilityCheck
-    draft true
-    //noinspection GroovyAssignabilityCheck
-    token getProperty("github.token")
-    releaseAssets = [jar.destinationDirectory.file("packwiz-installer.jar").get()]
-}
+if (project.hasProperty("github.token")) {
+    githubRelease {
+        // IntelliJ u ok?
+        //noinspection GroovyAssignabilityCheck
+        owner "comp500"
+        //noinspection GroovyAssignabilityCheck
+        repo "packwiz-installer"
+        //noinspection GroovyAssignabilityCheck
+        tagName "${project.version}"
+        //noinspection GroovyAssignabilityCheck
+        releaseName "Release ${project.version}"
+        //noinspection GroovyAssignabilityCheck
+        draft true
+        //noinspection GroovyAssignabilityCheck
+        token findProperty("github.token") ?: ""
+        releaseAssets = [jar.destinationDirectory.file("packwiz-installer.jar").get()]
+    }
 
-tasks.githubRelease.dependsOn(build)
+    tasks.githubRelease.dependsOn(build)
+}

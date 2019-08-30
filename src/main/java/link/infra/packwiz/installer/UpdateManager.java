@@ -153,6 +153,10 @@ public class UpdateManager {
 		List<SpaceSafeURI> invalidatedUris = new ArrayList<>();
 		if (manifest.cachedFiles != null) {
 			for (Map.Entry<SpaceSafeURI, ManifestFile.File> entry : manifest.cachedFiles.entrySet()) {
+				// ignore onlyOtherSide files
+				if (entry.getValue().onlyOtherSide) {
+					continue;
+				}
 				boolean invalid = false;
 				// if isn't optional, or is optional but optionValue == true
 				if (!entry.getValue().isOptional || entry.getValue().optionValue) {
