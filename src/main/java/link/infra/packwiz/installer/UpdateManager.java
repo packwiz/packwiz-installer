@@ -161,7 +161,7 @@ public class UpdateManager {
 				// if isn't optional, or is optional but optionValue == true
 				if (!entry.getValue().isOptional || entry.getValue().optionValue) {
 					if (entry.getValue().cachedLocation != null) {
-						if (!Files.exists(Paths.get(opts.packFolder, entry.getValue().cachedLocation))) {
+						if (!Paths.get(opts.packFolder, entry.getValue().cachedLocation).toFile().exists()) {
 							invalid = true;
 						}
 					} else {

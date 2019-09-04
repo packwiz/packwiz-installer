@@ -124,7 +124,7 @@ class DownloadTask implements IOptionDetails, IExceptionDetails {
 
 		// Don't update files marked with preserve if they already exist on disk
 		if (metadata.preserve) {
-			if (Files.exists(destPath)) {
+			if (destPath.toFile().exists()) {
 				return;
 			}
 		}
