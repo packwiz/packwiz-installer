@@ -151,17 +151,17 @@ public class UpdateManager {
 
 		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
 		List<SpaceSafeURI> invalidatedUris = new ArrayList<>();
-		if (manifest.cachedFiles != null) {
-			for (Map.Entry<SpaceSafeURI, ManifestFile.File> entry : manifest.cachedFiles.entrySet()) {
+		if (manifest.getCachedFiles() != null) {
+			for (Map.Entry<SpaceSafeURI, ManifestFile.File> entry : manifest.getCachedFiles().entrySet()) {
 				// ignore onlyOtherSide files
-				if (entry.getValue().onlyOtherSide) {
+				if (entry.getValue().getOnlyOtherSide()) {
 					continue;
 				}
 				boolean invalid = false;
 				// if isn't optional, or is optional but optionValue == true
-				if (!entry.getValue().isOptional || entry.getValue().optionValue) {
-					if (entry.getValue().cachedLocation != null) {
-						if (!Paths.get(opts.packFolder, entry.getValue().cachedLocation).toFile().exists()) {
+				if (!entry.getValue().isOptional() || entry.getValue().getOptionValue()) {
+					if (entry.getValue().getCachedLocation() != null) {
+						if (!Paths.get(opts.packFolder, entry.getValue().getCachedLocation()).toFile().exists()) {
 							invalid = true;
 						}
 					} else {
@@ -177,7 +177,7 @@ public class UpdateManager {
 			}
 		}
 
-		if (manifest.packFileHash != null && packFileSource.hashIsEqual(manifest.packFileHash) && invalidatedUris.isEmpty()) {
+		if (manifest.getPackFileHash() != null && packFileSource.hashIsEqual(manifest.getPackFileHash()) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack is already up to date!");
 			// todo: --force?
 			if (!stateHandler.getOptionsButton()) {
@@ -185,7 +185,7 @@ public class UpdateManager {
 			}
 		}
 
-		System.out.println("Modpack name: " + pf.name);
+		System.out.println("Modpack name: " + pf.getName());
 
 		if (stateHandler.getCancelButton()) {
 			showCancellationDialog();
@@ -194,8 +194,8 @@ public class UpdateManager {
 
 		try {
 			// This is badly written, I'll probably heavily refactor it at some point
-			processIndex(HandlerManager.getNewLoc(opts.downloadURI, pf.index.file),
-					HashUtils.getHash(pf.index.hashFormat, pf.index.hash), pf.index.hashFormat, manifest, invalidatedUris);
+			processIndex(HandlerManager.getNewLoc(opts.downloadURI, Objects.requireNonNull(pf.getIndex()).getFile()),
+					HashUtils.getHash(Objects.requireNonNull(pf.getIndex().getHashFormat()), Objects.requireNonNull(pf.getIndex().getHash())), pf.getIndex().getHashFormat(), manifest, invalidatedUris);
 		} catch (Exception e1) {
 			ui.handleExceptionAndExit(e1);
 		}
@@ -206,13 +206,13 @@ public class UpdateManager {
 
 		// If there were errors, don't write the manifest/index hashes, to ensure they are rechecked later
 		if (errorsOccurred) {
-			manifest.indexFileHash = null;
-			manifest.packFileHash = null;
+			manifest.setIndexFileHash(null);
+			manifest.setPackFileHash(null);
 		} else {
-			manifest.packFileHash = packFileSource.getHash();
+			manifest.setPackFileHash(packFileSource.getHash());
 		}
 
-		manifest.cachedSide = opts.side;
+		manifest.setCachedSide(opts.side);
 		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
 			gson.toJson(manifest, writer);
 		} catch (IOException e) {
@@ -227,13 +227,13 @@ public class UpdateManager {
 	}
 
 	private void processIndex(SpaceSafeURI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<SpaceSafeURI> invalidatedUris) {
-		if (manifest.indexFileHash != null && manifest.indexFileHash.equals(indexHash) && invalidatedUris.isEmpty()) {
+		if (manifest.getIndexFileHash() != null && manifest.getIndexFileHash().equals(indexHash) && invalidatedUris.isEmpty()) {
 			System.out.println("Modpack files are already up to date!");
 			if (!stateHandler.getOptionsButton()) {
 				return;
 			}
 		}
-		manifest.indexFileHash = indexHash;
+		manifest.setIndexFileHash(indexHash);
 
 		GeneralHashingSource indexFileSource;
 		try {
@@ -264,33 +264,29 @@ public class UpdateManager {
 			return;
 		}
 
-		if (manifest.cachedFiles == null) {
-			manifest.cachedFiles = new HashMap<>();
-		}
-
 		ui.submitProgress(new InstallProgress("Checking local files..."));
-		Iterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> it = manifest.cachedFiles.entrySet().iterator();
+		Iterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> it = manifest.getCachedFiles().entrySet().iterator();
 		while (it.hasNext()) {
 			Map.Entry<SpaceSafeURI, ManifestFile.File> entry = it.next();
-			if (entry.getValue().cachedLocation != null) {
+			if (entry.getValue().getCachedLocation() != null) {
 				boolean alreadyDeleted = false;
 				// Delete if option value has been set to false
-				if (entry.getValue().isOptional && !entry.getValue().optionValue) {
+				if (entry.getValue().isOptional() && !entry.getValue().getOptionValue()) {
 					try {
-						Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().cachedLocation));
+						Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().getCachedLocation()));
 					} catch (IOException e) {
 						// TODO: should this be shown to the user in some way?
 						e.printStackTrace();
 					}
 					// Set to null, as it doesn't exist anymore
-					entry.getValue().cachedLocation = null;
+					entry.getValue().setCachedLocation(null);
 					alreadyDeleted = true;
 				}
-				if (indexFile.files.stream().noneMatch(f -> f.file.equals(entry.getKey()))) {
+				if (indexFile.getFiles().stream().noneMatch(f -> Objects.equals(f.getFile(), entry.getKey()))) {
 					// File has been removed from the index
 					if (!alreadyDeleted) {
 						try {
-							Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().cachedLocation));
+							Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().getCachedLocation()));
 						} catch (IOException e) {
 							// TODO: should this be shown to the user in some way?
 							e.printStackTrace();
@@ -308,14 +304,13 @@ public class UpdateManager {
 		ui.submitProgress(new InstallProgress("Comparing new files..."));
 
 		// TODO: progress bar?
-		if (indexFile.files == null || indexFile.files.size() == 0) {
+		if (indexFile.getFiles().isEmpty()) {
 			System.out.println("Warning: Index is empty!");
-			indexFile.files = new ArrayList<>();
 		}
-		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side);
+		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile, indexFile.getHashFormat(), opts.side);
 		// If the side changes, invalidate EVERYTHING just in case
 		// Might not be needed, but done just to be safe
-		boolean invalidateAll = !opts.side.equals(manifest.cachedSide);
+		boolean invalidateAll = !opts.side.equals(manifest.getCachedSide());
 		if (invalidateAll) {
 			System.out.println("Side changed, invalidating all mods");
 		}
@@ -323,10 +318,10 @@ public class UpdateManager {
 			// TODO: should linkedfile be checked as well? should this be done in the download section?
 			if (invalidateAll) {
 				f.invalidate();
-			} else if (invalidatedUris.contains(f.metadata.file)) {
+			} else if (invalidatedUris.contains(f.metadata.getFile())) {
 				f.invalidate();
 			}
-			ManifestFile.File file = manifest.cachedFiles.get(f.metadata.file);
+			ManifestFile.File file = manifest.getCachedFiles().get(f.metadata.getFile());
 			if (file != null) {
 				// Ensure the file can be reverted later if necessary - the DownloadTask modifies the file so if it fails we need the old version back
 				file.backup();
@@ -412,11 +407,11 @@ public class UpdateManager {
 				if (task.getException() != null) {
 					ManifestFile.File file = task.cachedFile.getRevert();
 					if (file != null) {
-						manifest.cachedFiles.putIfAbsent(task.metadata.file, file);
+						manifest.getCachedFiles().putIfAbsent(task.metadata.getFile(), file);
 					}
 				} else {
 					// idiot, if it wasn't there in the first place it won't magically appear there
-					manifest.cachedFiles.putIfAbsent(task.metadata.file, task.cachedFile);
+					manifest.getCachedFiles().putIfAbsent(task.metadata.getFile(), task.cachedFile);
 				}
 			}
 
