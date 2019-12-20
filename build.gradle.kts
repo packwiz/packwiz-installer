@@ -77,10 +77,12 @@ if (project.hasProperty("github.token")) {
 tasks.compileKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
+		freeCompilerArgs = listOf("-Xjvm-default=enable")
 	}
 }
 tasks.compileTestKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
+		freeCompilerArgs = listOf("-Xjvm-default=enable")
 	}
 }
