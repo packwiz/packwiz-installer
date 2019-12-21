@@ -1,6 +1,6 @@
 package link.infra.packwiz.installer.ui
 
-import link.infra.packwiz.installer.ui.IExceptionDetails.ExceptionListResult
+import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 
@@ -39,7 +39,7 @@ class CLIHandler : IUserInterface {
 		}
 	}
 
-	override fun showExceptions(exceptions: List<IExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
+	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
 		val future = CompletableFuture<ExceptionListResult>()
 		future.complete(ExceptionListResult.CANCEL)
 		return future

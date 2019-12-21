@@ -1,495 +1,493 @@
-package link.infra.packwiz.installer;
+package link.infra.packwiz.installer
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonIOException;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.annotations.SerializedName;
-import com.moandjiezana.toml.Toml;
-import link.infra.packwiz.installer.metadata.IndexFile;
-import link.infra.packwiz.installer.metadata.ManifestFile;
-import link.infra.packwiz.installer.metadata.PackFile;
-import link.infra.packwiz.installer.metadata.SpaceSafeURI;
-import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
-import link.infra.packwiz.installer.metadata.hash.Hash;
-import link.infra.packwiz.installer.metadata.hash.HashUtils;
-import link.infra.packwiz.installer.request.HandlerManager;
-import link.infra.packwiz.installer.ui.IExceptionDetails;
-import link.infra.packwiz.installer.ui.IUserInterface;
-import link.infra.packwiz.installer.ui.InputStateHandler;
-import link.infra.packwiz.installer.ui.InstallProgress;
-import okio.Okio;
-import okio.Source;
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonIOException
+import com.google.gson.JsonSyntaxException
+import com.google.gson.annotations.SerializedName
+import com.moandjiezana.toml.Toml
+import link.infra.packwiz.installer.DownloadTask.Companion.createTasksFromIndex
+import link.infra.packwiz.installer.metadata.IndexFile
+import link.infra.packwiz.installer.metadata.ManifestFile
+import link.infra.packwiz.installer.metadata.PackFile
+import link.infra.packwiz.installer.metadata.SpaceSafeURI
+import link.infra.packwiz.installer.metadata.hash.Hash
+import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
+import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
+import link.infra.packwiz.installer.request.HandlerManager.getFileSource
+import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
+import link.infra.packwiz.installer.ui.IUserInterface
+import link.infra.packwiz.installer.ui.IUserInterface.CancellationResult
+import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
+import link.infra.packwiz.installer.ui.InputStateHandler
+import link.infra.packwiz.installer.ui.InstallProgress
+import okio.buffer
+import java.io.FileNotFoundException
+import java.io.FileReader
+import java.io.FileWriter
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.*
+import java.util.concurrent.CompletionService
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorCompletionService
+import java.util.concurrent.Executors
+import kotlin.system.exitProcess
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.stream.Collectors;
+class UpdateManager internal constructor(private val opts: Options, val ui: IUserInterface, private val stateHandler: InputStateHandler) {
+	private var cancelled = false
+	private var cancelledStartGame = false
+	private var errorsOccurred = false
 
-public class UpdateManager {
+	init {
+		start()
+	}
 
-	private final Options opts;
-	public final IUserInterface ui;
-	private boolean cancelled;
-	private boolean cancelledStartGame = false;
-	private InputStateHandler stateHandler;
-	private boolean errorsOccurred = false;
-
-	public static class Options {
-		SpaceSafeURI downloadURI = null;
-		String manifestFile = "packwiz.json"; // TODO: make configurable
-		String packFolder = ".";
-		Side side = Side.CLIENT;
-
-		public enum Side {
+	data class Options(
+			var downloadURI: SpaceSafeURI? = null,
+			var manifestFile: String = "packwiz.json", // TODO: make configurable
+			var packFolder: String = ".",
+			var side: Side = Side.CLIENT
+	) {
+		enum class Side {
 			@SerializedName("client")
 			CLIENT("client"),
 			@SerializedName("server")
 			SERVER("server"),
 			@SerializedName("both")
-			BOTH("both", new Side[] { CLIENT, SERVER });
+			@Suppress("unused")
+			BOTH("both", arrayOf(CLIENT, SERVER));
 
-			private final String sideName;
-			private final Side[] depSides;
+			private val sideName: String
+			private val depSides: Array<Side>?
 
-			Side(String sideName) {
-				this.sideName = sideName.toLowerCase();
-				this.depSides = null;
+			constructor(sideName: String) {
+				this.sideName = sideName.toLowerCase()
+				depSides = null
 			}
 
-			Side(String sideName, Side[] depSides) {
-				this.sideName = sideName.toLowerCase();
-				this.depSides = depSides;
+			constructor(sideName: String, depSides: Array<Side>) {
+				this.sideName = sideName.toLowerCase()
+				this.depSides = depSides
 			}
 
-			@Override
-			public String toString() {
-				return this.sideName;
-			}
+			override fun toString() = sideName
 
-			public boolean hasSide(Side tSide) {
-				if (this.equals(tSide)) {
-					return true;
+			fun hasSide(tSide: Side): Boolean {
+				if (this == tSide) {
+					return true
 				}
-				if (this.depSides != null) {
-					for (Side depSide : this.depSides) {
-						if (depSide.equals(tSide)) {
-							return true;
+				if (depSides != null) {
+					for (depSide in depSides) {
+						if (depSide == tSide) {
+							return true
 						}
 					}
 				}
-				return false;
+				return false
 			}
 
-			public static Side from(String name) {
-				String lowerName = name.toLowerCase();
-				for (Side side : Side.values()) {
-					if (side.sideName.equals(lowerName)) {
-						return side;
+			companion object {
+				fun from(name: String): Side? {
+					val lowerName = name.toLowerCase()
+					for (side in values()) {
+						if (side.sideName == lowerName) {
+							return side
+						}
 					}
+					return null
 				}
-				return null;
 			}
 		}
 	}
 
-	UpdateManager(Options opts, IUserInterface ui, InputStateHandler inputStateHandler) {
-		this.opts = opts;
-		this.ui = ui;
-		this.stateHandler = inputStateHandler;
-		this.start();
-	}
+	private fun start() {
+		checkOptions()
 
-	private void start() {
-		this.checkOptions();
-
-		ui.submitProgress(new InstallProgress("Loading manifest file..."));
-		Gson gson = new GsonBuilder().registerTypeAdapter(Hash.class, new Hash.TypeHandler()).create();
-		ManifestFile manifest;
-		try {
-			manifest = gson.fromJson(new FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
-					ManifestFile.class);
-		} catch (FileNotFoundException e) {
-			manifest = new ManifestFile();
-		} catch (JsonSyntaxException | JsonIOException e) {
-			ui.handleExceptionAndExit(e);
-			return;
+		ui.submitProgress(InstallProgress("Loading manifest file..."))
+		val gson = GsonBuilder().registerTypeAdapter(Hash::class.java, Hash.TypeHandler()).create()
+		val manifest = try {
+			gson.fromJson(FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
+					ManifestFile::class.java)
+		} catch (e: FileNotFoundException) {
+			ManifestFile()
+		} catch (e: JsonSyntaxException) {
+			ui.handleExceptionAndExit(e)
+			return
+		} catch (e: JsonIOException) {
+			ui.handleExceptionAndExit(e)
+			return
 		}
 
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			handleCancellation();
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			handleCancellation()
 		}
 
-		ui.submitProgress(new InstallProgress("Loading pack file..."));
-		GeneralHashingSource packFileSource;
-		try {
-			Source src = HandlerManager.getFileSource(opts.downloadURI);
-			packFileSource = HashUtils.getHasher("sha256").getHashingSource(src);
-		} catch (Exception e) {
-			// TODO: still launch the game if updating doesn't work?
-			// TODO: ask user if they want to launch the game, exit(1) if they don't
-			ui.handleExceptionAndExit(e);
-			return;
+		ui.submitProgress(InstallProgress("Loading pack file..."))
+		val packFileSource = try {
+			Objects.requireNonNull(opts.downloadURI)
+			val src = getFileSource(opts.downloadURI!!)
+			getHasher("sha256").getHashingSource(src)
+		} catch (e: Exception) {
+			// TODO: run cancellation window?
+			ui.handleExceptionAndExit(e)
+			return
 		}
-		PackFile pf;
-		try {
-			pf = new Toml().read(Okio.buffer(packFileSource).inputStream()).to(PackFile.class);
-		} catch (IllegalStateException e) {
-			ui.handleExceptionAndExit(e);
-			return;
-		}
-
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			handleCancellation();
+		val pf = packFileSource.buffer().use {
+			try {
+				Toml().read(it.inputStream()).to(PackFile::class.java)
+			} catch (e: IllegalStateException) {
+				ui.handleExceptionAndExit(e)
+				return
+			}
 		}
 
-		ui.submitProgress(new InstallProgress("Checking local files..."));
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			handleCancellation()
+		}
+
+		ui.submitProgress(InstallProgress("Checking local files..."))
 
 		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
-		List<SpaceSafeURI> invalidatedUris = new ArrayList<>();
-		if (manifest.getCachedFiles() != null) {
-			for (Map.Entry<SpaceSafeURI, ManifestFile.File> entry : manifest.getCachedFiles().entrySet()) {
-				// ignore onlyOtherSide files
-				if (entry.getValue().getOnlyOtherSide()) {
-					continue;
-				}
-				boolean invalid = false;
-				// if isn't optional, or is optional but optionValue == true
-				if (!entry.getValue().isOptional() || entry.getValue().getOptionValue()) {
-					if (entry.getValue().getCachedLocation() != null) {
-						if (!Paths.get(opts.packFolder, entry.getValue().getCachedLocation()).toFile().exists()) {
-							invalid = true;
-						}
-					} else {
-						// if cachedLocation == null, should probably be installed!!
-						invalid = true;
+		val invalidatedUris: MutableList<SpaceSafeURI> = ArrayList()
+		for ((fileUri, file) in manifest.cachedFiles) {
+			// ignore onlyOtherSide files
+			if (file.onlyOtherSide) {
+				continue
+			}
+
+			var invalid = false
+			// if isn't optional, or is optional but optionValue == true
+			if (!file.isOptional || file.optionValue) {
+				if (file.cachedLocation != null) {
+					if (!Paths.get(opts.packFolder, file.cachedLocation).toFile().exists()) {
+						invalid = true
 					}
+				} else {
+					// if cachedLocation == null, should probably be installed!!
+					invalid = true
 				}
-				if (invalid) {
-					SpaceSafeURI fileUri = entry.getKey();
-					System.out.println("File " + fileUri.toString() + " invalidated, marked for redownloading");
-					invalidatedUris.add(fileUri);
-				}
+			}
+			if (invalid) {
+				println("File $fileUri invalidated, marked for redownloading")
+				invalidatedUris.add(fileUri)
 			}
 		}
 
-		if (manifest.getPackFileHash() != null && packFileSource.hashIsEqual(manifest.getPackFileHash()) && invalidatedUris.isEmpty()) {
-			System.out.println("Modpack is already up to date!");
+		if (manifest.packFileHash?.let { packFileSource.hashIsEqual(it) } == true && invalidatedUris.isEmpty()) {
+			println("Modpack is already up to date!")
 			// todo: --force?
-			if (!stateHandler.getOptionsButton()) {
-				return;
+			if (!stateHandler.optionsButton) {
+				return
 			}
 		}
 
-		System.out.println("Modpack name: " + pf.getName());
+		println("Modpack name: " + pf.name)
 
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			handleCancellation();
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			handleCancellation()
 		}
-
 		try {
 			// This is badly written, I'll probably heavily refactor it at some point
-			processIndex(HandlerManager.getNewLoc(opts.downloadURI, Objects.requireNonNull(pf.getIndex()).getFile()),
-					HashUtils.getHash(Objects.requireNonNull(pf.getIndex().getHashFormat()), Objects.requireNonNull(pf.getIndex().getHash())), pf.getIndex().getHashFormat(), manifest, invalidatedUris);
-		} catch (Exception e1) {
-			ui.handleExceptionAndExit(e1);
+			// The port to Kotlin made this REALLY messy!!!!
+			getNewLoc(opts.downloadURI, Objects.requireNonNull(pf.index)!!.file)?.let {
+				pf.index!!.hashFormat?.let { it1 ->
+					processIndex(it,
+							getHash(Objects.requireNonNull(pf.index!!.hashFormat)!!, Objects.requireNonNull(pf.index!!.hash)!!), it1, manifest, invalidatedUris)
+				}
+			}
+		} catch (e1: Exception) {
+			ui.handleExceptionAndExit(e1)
 		}
 
-		handleCancellation();
+		handleCancellation()
 
 		// TODO: update MMC params, java args etc
 
 		// If there were errors, don't write the manifest/index hashes, to ensure they are rechecked later
 		if (errorsOccurred) {
-			manifest.setIndexFileHash(null);
-			manifest.setPackFileHash(null);
+			manifest.indexFileHash = null
+			manifest.packFileHash = null
 		} else {
-			manifest.setPackFileHash(packFileSource.getHash());
+			manifest.packFileHash = packFileSource.hash
 		}
 
-		manifest.setCachedSide(opts.side);
-		try (Writer writer = new FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString())) {
-			gson.toJson(manifest, writer);
-		} catch (IOException e) {
+		manifest.cachedSide = opts.side
+		try {
+			FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString()).use { writer -> gson.toJson(manifest, writer) }
+		} catch (e: IOException) {
 			// TODO: add message?
-			ui.handleException(e);
+			ui.handleException(e)
 		}
-
 	}
 
-	private void checkOptions() {
+	private fun checkOptions() {
 		// TODO: implement
 	}
 
-	private void processIndex(SpaceSafeURI indexUri, Hash indexHash, String hashFormat, ManifestFile manifest, List<SpaceSafeURI> invalidatedUris) {
-		if (manifest.getIndexFileHash() != null && manifest.getIndexFileHash().equals(indexHash) && invalidatedUris.isEmpty()) {
-			System.out.println("Modpack files are already up to date!");
-			if (!stateHandler.getOptionsButton()) {
-				return;
+	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
+		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
+			println("Modpack files are already up to date!")
+			if (!stateHandler.optionsButton) {
+				return
 			}
 		}
-		manifest.setIndexFileHash(indexHash);
+		manifest.indexFileHash = indexHash
 
-		GeneralHashingSource indexFileSource;
-		try {
-			Source src = HandlerManager.getFileSource(indexUri);
-			indexFileSource = HashUtils.getHasher(hashFormat).getHashingSource(src);
-		} catch (Exception e) {
-			// TODO: still launch the game if updating doesn't work?
-			// TODO: ask user if they want to launch the game, exit(1) if they don't
-			ui.handleExceptionAndExit(e);
-			return;
+		val indexFileSource = try {
+			val src = getFileSource(indexUri)
+			getHasher(hashFormat).getHashingSource(src)
+		} catch (e: Exception) {
+			// TODO: run cancellation window?
+			ui.handleExceptionAndExit(e)
+			return
 		}
-		IndexFile indexFile;
-		try {
-			indexFile = new Toml().read(Okio.buffer(indexFileSource).inputStream()).to(IndexFile.class);
-		} catch (IllegalStateException e) {
-			ui.handleExceptionAndExit(e);
-			return;
+		val indexFile = try {
+			Toml().read(indexFileSource.buffer().inputStream()).to(IndexFile::class.java)
+		} catch (e: IllegalStateException) {
+			ui.handleExceptionAndExit(e)
+			return
 		}
-
 		if (!indexFileSource.hashIsEqual(indexHash)) {
 			// TODO: throw exception
-			System.out.println("I was meant to put an error message here but I'll do that later");
-			return;
+			println("I was meant to put an error message here but I'll do that later")
+			return
+		}
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			return
 		}
 
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			return;
-		}
-
-		ui.submitProgress(new InstallProgress("Checking local files..."));
-		Iterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> it = manifest.getCachedFiles().entrySet().iterator();
+		ui.submitProgress(InstallProgress("Checking local files..."))
+		// TODO: use kotlin filtering/FP rather than an iterator?
+		val it: MutableIterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
 		while (it.hasNext()) {
-			Map.Entry<SpaceSafeURI, ManifestFile.File> entry = it.next();
-			if (entry.getValue().getCachedLocation() != null) {
-				boolean alreadyDeleted = false;
+			val (uri, file) = it.next()
+			if (file.cachedLocation != null) {
+				var alreadyDeleted = false
 				// Delete if option value has been set to false
-				if (entry.getValue().isOptional() && !entry.getValue().getOptionValue()) {
+				if (file.isOptional && !file.optionValue) {
 					try {
-						Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().getCachedLocation()));
-					} catch (IOException e) {
+						Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))
+					} catch (e: IOException) {
 						// TODO: should this be shown to the user in some way?
-						e.printStackTrace();
+						e.printStackTrace()
 					}
 					// Set to null, as it doesn't exist anymore
-					entry.getValue().setCachedLocation(null);
-					alreadyDeleted = true;
+					file.cachedLocation = null
+					alreadyDeleted = true
 				}
-				if (indexFile.getFiles().stream().noneMatch(f -> Objects.equals(f.getFile(), entry.getKey()))) {
-					// File has been removed from the index
+				if (indexFile.files.none { it.file == uri }) { // File has been removed from the index
 					if (!alreadyDeleted) {
 						try {
-							Files.deleteIfExists(Paths.get(opts.packFolder, entry.getValue().getCachedLocation()));
-						} catch (IOException e) {
-							// TODO: should this be shown to the user in some way?
-							e.printStackTrace();
+							Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))
+						} catch (e: IOException) { // TODO: should this be shown to the user in some way?
+							e.printStackTrace()
 						}
 					}
-					it.remove();
+					it.remove()
 				}
 			}
 		}
 
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			return;
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			return
 		}
-		ui.submitProgress(new InstallProgress("Comparing new files..."));
+		ui.submitProgress(InstallProgress("Comparing new files..."))
 
 		// TODO: progress bar?
-		if (indexFile.getFiles().isEmpty()) {
-			System.out.println("Warning: Index is empty!");
+		if (indexFile.files.isEmpty()) {
+			println("Warning: Index is empty!")
 		}
-		List<DownloadTask> tasks = DownloadTask.createTasksFromIndex(indexFile, indexFile.getHashFormat(), opts.side);
+		val tasks = createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side)
 		// If the side changes, invalidate EVERYTHING just in case
 		// Might not be needed, but done just to be safe
-		boolean invalidateAll = !opts.side.equals(manifest.getCachedSide());
+		val invalidateAll = opts.side != manifest.cachedSide
 		if (invalidateAll) {
-			System.out.println("Side changed, invalidating all mods");
+			println("Side changed, invalidating all mods")
 		}
-		tasks.forEach(f -> {
+		tasks.forEach{ f ->
 			// TODO: should linkedfile be checked as well? should this be done in the download section?
 			if (invalidateAll) {
-				f.invalidate();
-			} else if (invalidatedUris.contains(f.metadata.getFile())) {
-				f.invalidate();
+				f.invalidate()
+			} else if (invalidatedUris.contains(f.metadata.file)) {
+				f.invalidate()
 			}
-			ManifestFile.File file = manifest.getCachedFiles().get(f.metadata.getFile());
-			if (file != null) {
-				// Ensure the file can be reverted later if necessary - the DownloadTask modifies the file so if it fails we need the old version back
-				file.backup();
-			}
+			val file = manifest.cachedFiles[f.metadata.file]
+			// Ensure the file can be reverted later if necessary - the DownloadTask modifies the file so if it fails we need the old version back
+			file?.backup()
 			// If it is null, the DownloadTask will make a new empty cachedFile
-			f.updateFromCache(file);
-		});
+			f.updateFromCache(file)
+		}
 
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			return;
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			return
 		}
 
 		// Let's hope downloadMetadata is a pure function!!!
-		tasks.parallelStream().forEach(f -> f.downloadMetadata(indexFile, indexUri));
+		tasks.parallelStream().forEach { f -> f.downloadMetadata(indexFile, indexUri) }
 
-		List<IExceptionDetails> failedTasks = tasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
-		if (!failedTasks.isEmpty()) {
-			errorsOccurred = true;
-			IExceptionDetails.ExceptionListResult exceptionListResult;
-			try {
-				exceptionListResult = ui.showExceptions(failedTasks, tasks.size(), true).get();
-			} catch (InterruptedException | ExecutionException e) {
-				// Interrupted means cancelled???
-				ui.handleExceptionAndExit(e);
-				return;
+		val failedTaskDetails = tasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
+		if (failedTaskDetails.isNotEmpty()) {
+			errorsOccurred = true
+			val exceptionListResult: ExceptionListResult
+			exceptionListResult = try {
+				ui.showExceptions(failedTaskDetails, tasks.size, true).get()
+			} catch (e: InterruptedException) { // Interrupted means cancelled???
+				ui.handleExceptionAndExit(e)
+				return
+			} catch (e: ExecutionException) {
+				ui.handleExceptionAndExit(e)
+				return
 			}
-			switch (exceptionListResult) {
-				case CONTINUE:
-					break;
-				case CANCEL:
-					cancelled = true;
-					return;
-				case IGNORE:
-					cancelledStartGame = true;
-					return;
+			when (exceptionListResult) {
+				ExceptionListResult.CONTINUE -> {}
+				ExceptionListResult.CANCEL -> {
+					cancelled = true
+					return
+				}
+				ExceptionListResult.IGNORE -> {
+					cancelledStartGame = true
+					return
+				}
 			}
 		}
 
-		if (stateHandler.getCancelButton()) {
-			showCancellationDialog();
-			return;
+		if (stateHandler.cancelButton) {
+			showCancellationDialog()
+			return
 		}
 
-		List<DownloadTask> nonFailedFirstTasks = tasks.stream().filter(t -> t.getException() == null).collect(Collectors.toList());
-		List<DownloadTask> optionTasks = nonFailedFirstTasks.stream().filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).collect(Collectors.toList());
+		// TODO: task failed function?
+		val nonFailedFirstTasks = tasks.filter { t -> !t.failed() }.toList()
+		val optionTasks = nonFailedFirstTasks.filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).toList()
 		// If options changed, present all options again
-		if (stateHandler.getOptionsButton() || optionTasks.stream().anyMatch(DownloadTask::isNewOptional)) {
-			// new ArrayList is requires so it's an IOptionDetails rather than a DownloadTask list
-			Future<Boolean> cancelledResult = ui.showOptions(new ArrayList<>(optionTasks));
+		if (stateHandler.optionsButton || optionTasks.any(DownloadTask::isNewOptional)) {
+			// new ArrayList is required so it's an IOptionDetails rather than a DownloadTask list
+			val cancelledResult = ui.showOptions(ArrayList(optionTasks))
 			try {
 				if (cancelledResult.get()) {
-					cancelled = true;
+					cancelled = true
 					// TODO: Should the UI be closed somehow??
-					return;
+					return
 				}
-			} catch (InterruptedException | ExecutionException e) {
+			} catch (e: InterruptedException) {
 				// Interrupted means cancelled???
-				ui.handleExceptionAndExit(e);
+				ui.handleExceptionAndExit(e)
+			} catch (e: ExecutionException) {
+				ui.handleExceptionAndExit(e)
 			}
 		}
-		ui.disableOptionsButton();
+		ui.disableOptionsButton()
 
 		// TODO: different thread pool type?
-		ExecutorService threadPool = Executors.newFixedThreadPool(10);
-		CompletionService<DownloadTask> completionService = new ExecutorCompletionService<>(threadPool);
-
-		tasks.forEach(t -> completionService.submit(() -> {
-			t.download(opts.packFolder, indexUri);
-			return t;
-		}));
-
-		for (int i = 0; i < tasks.size(); i++) {
-			DownloadTask task;
-			try {
-				task = completionService.take().get();
-			} catch (InterruptedException | ExecutionException e) {
-				ui.handleException(e);
-				task = null;
+		val threadPool = Executors.newFixedThreadPool(10)
+		val completionService: CompletionService<DownloadTask> = ExecutorCompletionService(threadPool)
+		tasks.forEach { t ->
+			completionService.submit {
+				t.download(opts.packFolder, indexUri)
+				t
+			}
+		}
+		for (i in tasks.indices) {
+			var task: DownloadTask?
+			task = try {
+				completionService.take().get()
+			} catch (e: InterruptedException) {
+				ui.handleException(e)
+				null
+			} catch (e: ExecutionException) {
+				ui.handleException(e)
+				null
 			}
 			// Update manifest - If there were no errors cachedFile has already been modified in place (good old pass by reference)
-			if (task != null) {
-				if (task.getException() != null) {
-					ManifestFile.File file = task.cachedFile.getRevert();
-					if (file != null) {
-						manifest.getCachedFiles().putIfAbsent(task.metadata.getFile(), file);
-					}
+			task?.cachedFile?.let { file ->
+				if (task.failed()) {
+					val oldFile = file.revert
+					if (oldFile != null) {
+						task.metadata.file?.let { uri -> manifest.cachedFiles.putIfAbsent(uri, oldFile) }
+					} else { null }
 				} else {
-					// idiot, if it wasn't there in the first place it won't magically appear there
-					manifest.getCachedFiles().putIfAbsent(task.metadata.getFile(), task.cachedFile);
+					task.metadata.file?.let { uri -> manifest.cachedFiles.putIfAbsent(uri, file) }
 				}
 			}
 
-			String progress;
+			var progress: String
 			if (task != null) {
-				if (task.getException() != null) {
-					progress = "Failed to download " + task.metadata.getName() + ": " + task.getException().getMessage();
-					task.getException().printStackTrace();
+				val exDetails = task.exceptionDetails
+				if (exDetails != null) {
+					progress = "Failed to download ${exDetails.name}: ${exDetails.exception.message}"
+					exDetails.exception.printStackTrace()
 				} else {
-					// TODO: should this be revised for tasks that didn't actually download it?
-					progress = "Downloaded " + task.metadata.getName();
+					progress = "Downloaded ${task.name}"
 				}
 			} else {
-				progress = "Failed to download, unknown reason";
+				progress = "Failed to download, unknown reason"
 			}
-			ui.submitProgress(new InstallProgress(progress, i + 1, tasks.size()));
+			ui.submitProgress(InstallProgress(progress, i + 1, tasks.size))
 
-			if (stateHandler.getCancelButton()) {
-				// Stop all tasks, don't launch the game (it's in an invalid state!)
-				threadPool.shutdown();
-				cancelled = true;
-				return;
+			if (stateHandler.cancelButton) { // Stop all tasks, don't launch the game (it's in an invalid state!)
+				threadPool.shutdown()
+				cancelled = true
+				return
 			}
 		}
 
 		// Shut down the thread pool when the update is done
-		threadPool.shutdown();
+		threadPool.shutdown()
 
-		List<IExceptionDetails> failedTasks2ElectricBoogaloo = nonFailedFirstTasks.stream().filter(t -> t.getException() != null).collect(Collectors.toList());
-		if (!failedTasks2ElectricBoogaloo.isEmpty()) {
-			errorsOccurred = true;
-			IExceptionDetails.ExceptionListResult exceptionListResult;
-			try {
-				exceptionListResult = ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size(), false).get();
-			} catch (InterruptedException | ExecutionException e) {
+		val failedTasks2ElectricBoogaloo = nonFailedFirstTasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
+		if (failedTasks2ElectricBoogaloo.isNotEmpty()) {
+			errorsOccurred = true
+			val exceptionListResult: ExceptionListResult
+			exceptionListResult = try {
+				ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size, false).get()
+			} catch (e: InterruptedException) {
 				// Interrupted means cancelled???
-				ui.handleExceptionAndExit(e);
-				return;
+				ui.handleExceptionAndExit(e)
+				return
+			} catch (e: ExecutionException) {
+				ui.handleExceptionAndExit(e)
+				return
 			}
-			switch (exceptionListResult) {
-				case CONTINUE:
-					break;
-				case CANCEL:
-					cancelled = true;
-					return;
-				case IGNORE:
-					cancelledStartGame = true;
+			when (exceptionListResult) {
+				ExceptionListResult.CONTINUE -> {}
+				ExceptionListResult.CANCEL -> cancelled = true
+				ExceptionListResult.IGNORE -> cancelledStartGame = true
 			}
 		}
 	}
 
-	private void showCancellationDialog() {
-		IExceptionDetails.ExceptionListResult exceptionListResult;
-		try {
-			exceptionListResult = ui.showCancellationDialog().get();
-		} catch (InterruptedException | ExecutionException e) {
+	private fun showCancellationDialog() {
+		val cancellationResult: CancellationResult
+		cancellationResult = try {
+			ui.showCancellationDialog().get()
+		} catch (e: InterruptedException) {
 			// Interrupted means cancelled???
-			ui.handleExceptionAndExit(e);
-			return;
+			ui.handleExceptionAndExit(e)
+			return
+		} catch (e: ExecutionException) {
+			ui.handleExceptionAndExit(e)
+			return
 		}
-		switch (exceptionListResult) {
-			case CONTINUE:
-				throw new RuntimeException("Continuation not allowed here!");
-			case CANCEL:
-				cancelled = true;
-				return;
-			case IGNORE:
-				cancelledStartGame = true;
+		when (cancellationResult) {
+			CancellationResult.QUIT -> cancelled = true
+			CancellationResult.CONTINUE -> cancelledStartGame = true
 		}
 	}
 
-	private void handleCancellation() {
+	private fun handleCancellation() {
 		if (cancelled) {
-			System.out.println("Update cancelled by user!");
-			System.exit(1);
+			println("Update cancelled by user!")
+			exitProcess(1)
 		} else if (cancelledStartGame) {
-			System.out.println("Update cancelled by user! Continuing to start game...");
-			System.exit(0);
+			println("Update cancelled by user! Continuing to start game...")
+			exitProcess(0)
 		}
 	}
 }

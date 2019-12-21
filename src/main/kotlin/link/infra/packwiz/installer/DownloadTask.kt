@@ -1,251 +1,230 @@
-package link.infra.packwiz.installer;
+package link.infra.packwiz.installer
 
-import link.infra.packwiz.installer.metadata.IndexFile;
-import link.infra.packwiz.installer.metadata.ManifestFile;
-import link.infra.packwiz.installer.metadata.ModFile;
-import link.infra.packwiz.installer.metadata.SpaceSafeURI;
-import link.infra.packwiz.installer.metadata.hash.GeneralHashingSource;
-import link.infra.packwiz.installer.metadata.hash.Hash;
-import link.infra.packwiz.installer.metadata.hash.HashUtils;
-import link.infra.packwiz.installer.ui.IExceptionDetails;
-import link.infra.packwiz.installer.ui.IOptionDetails;
-import okio.Buffer;
-import okio.Okio;
-import okio.Source;
+import link.infra.packwiz.installer.metadata.IndexFile
+import link.infra.packwiz.installer.metadata.ManifestFile
+import link.infra.packwiz.installer.metadata.SpaceSafeURI
+import link.infra.packwiz.installer.metadata.hash.Hash
+import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
+import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
+import link.infra.packwiz.installer.ui.ExceptionDetails
+import link.infra.packwiz.installer.ui.IOptionDetails
+import okio.Buffer
+import okio.buffer
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.util.*
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+internal class DownloadTask private constructor(val metadata: IndexFile.File, defaultFormat: String, private val downloadSide: UpdateManager.Options.Side) : IOptionDetails {
+	var cachedFile: ManifestFile.File? = null
 
-class DownloadTask implements IOptionDetails, IExceptionDetails {
-	final IndexFile.File metadata;
-	ManifestFile.File cachedFile = null;
-	private Exception failure = null;
-	private boolean alreadyUpToDate = false;
-	private boolean metadataRequired = true;
-	private boolean invalidated = false;
+	private var err: Exception? = null
+	val exceptionDetails get() = err?.let { e -> ExceptionDetails(name, e) }
+
+	fun failed() = err != null
+
+	private var alreadyUpToDate = false
+	private var metadataRequired = true
+	private var invalidated = false
 	// If file is new or isOptional changed to true, the option needs to be presented again
-	private boolean newOptional = true;
-	private final UpdateManager.Options.Side downloadSide;
+	private var newOptional = true
 
-	private DownloadTask(IndexFile.File metadata, String defaultFormat, UpdateManager.Options.Side downloadSide) {
-		this.metadata = metadata;
-		if (metadata.getHashFormat() == null || metadata.getHashFormat().length() == 0) {
-			metadata.setHashFormat(defaultFormat);
+	val isOptional get() = metadata.linkedFile?.isOptional ?: false
+
+	fun isNewOptional() = isOptional && newOptional
+
+	fun correctSide() = metadata.linkedFile?.side?.hasSide(downloadSide) ?: true
+
+	override val name get() = metadata.name
+
+	// Ensure that an update is done if it changes from false to true, or from true to false
+	override var optionValue: Boolean
+		get() = cachedFile?.optionValue ?: true
+		set(value) {
+			if (value && !optionValue) { // Ensure that an update is done if it changes from false to true, or from true to false
+				alreadyUpToDate = false
+			}
+			cachedFile?.optionValue = value
 		}
-		this.downloadSide = downloadSide;
+
+	override val optionDescription get() = metadata.linkedFile?.option?.description ?: ""
+
+	init {
+		if (metadata.hashFormat?.isEmpty() != false) {
+			metadata.hashFormat = defaultFormat
+		}
 	}
 
-	void invalidate() {
-		invalidated = true;
-		alreadyUpToDate = false;
+	fun invalidate() {
+		invalidated = true
+		alreadyUpToDate = false
 	}
 
-	void updateFromCache(ManifestFile.File cachedFile) {
-		if (failure != null) return;
+	fun updateFromCache(cachedFile: ManifestFile.File?) {
+		if (err != null) return
+
 		if (cachedFile == null) {
-			this.cachedFile = new ManifestFile.File();
-			return;
+			this.cachedFile = ManifestFile.File()
+			return
 		}
-
-		this.cachedFile = cachedFile;
-
+		this.cachedFile = cachedFile
 		if (!invalidated) {
-			Hash currHash;
-			try {
-				currHash = HashUtils.getHash(Objects.requireNonNull(metadata.getHashFormat()), Objects.requireNonNull(metadata.getHash()));
-			} catch (Exception e) {
-				failure = e;
-				return;
+			val currHash = try {
+				getHash(metadata.hashFormat!!, metadata.hash!!)
+			} catch (e: Exception) {
+				err = e
+				return
 			}
-			if (currHash.equals(cachedFile.getHash())) {
-				// Already up to date
-				alreadyUpToDate = true;
-				metadataRequired = false;
+			if (currHash == cachedFile.hash) { // Already up to date
+				alreadyUpToDate = true
+				metadataRequired = false
 			}
 		}
-		if (cachedFile.isOptional()) {
+		if (cachedFile.isOptional) {
 			// Because option selection dialog might set this task to true/false, metadata is always needed to download
 			// the file, and to show the description and name
-			metadataRequired = true;
+			metadataRequired = true
 		}
 	}
 
-	void downloadMetadata(IndexFile parentIndexFile, SpaceSafeURI indexUri) {
-		if (failure != null) return;
+	fun downloadMetadata(parentIndexFile: IndexFile, indexUri: SpaceSafeURI) {
+		if (err != null) return
+
 		if (metadataRequired) {
 			try {
-				metadata.downloadMeta(parentIndexFile, indexUri);
-			} catch (Exception e) {
-				failure = e;
-				return;
+				// Retrieve the linked metadata file
+				metadata.downloadMeta(parentIndexFile, indexUri)
+			} catch (e: Exception) {
+				err = e
+				return
 			}
-			ModFile linkedFile = metadata.getLinkedFile();
-			if (linkedFile != null) {
-				ModFile.Option option = linkedFile.getOption();
-				if (option != null) {
-					if (option.getOptional()) {
-						if (cachedFile.isOptional()) {
-							// isOptional didn't change
-							newOptional = false;
-						} else {
-							// isOptional false -> true, set option to it's default value
-							// TODO: preserve previous option value, somehow??
-							cachedFile.setOptionValue(option.getDefaultValue());
+			cachedFile?.let { cachedFile ->
+				val linkedFile = metadata.linkedFile
+				if (linkedFile != null) {
+					linkedFile.option?.let { opt ->
+						if (opt.optional) {
+							if (cachedFile.isOptional) {
+								// isOptional didn't change
+								newOptional = false
+							} else {
+								// isOptional false -> true, set option to it's default value
+								// TODO: preserve previous option value, somehow??
+								cachedFile.optionValue = opt.defaultValue
+							}
 						}
 					}
+					cachedFile.isOptional = isOptional
+					cachedFile.onlyOtherSide = !correctSide()
 				}
-				cachedFile.setOptional(isOptional());
-				cachedFile.setOnlyOtherSide(!correctSide());
 			}
 		}
 	}
 
-	void download(String packFolder, SpaceSafeURI indexUri) {
-		if (failure != null) return;
+	fun download(packFolder: String, indexUri: SpaceSafeURI) {
+		if (err != null) return
 
 		// Ensure it is removed
-		if (!cachedFile.getOptionValue() || !correctSide()) {
-			if (cachedFile.getCachedLocation() == null) return;
-			try {
-				Files.deleteIfExists(Paths.get(packFolder, cachedFile.getCachedLocation()));
-			} catch (IOException e) {
-				// TODO: how much of a problem is this? use log4j/other log library to show warning?
-				e.printStackTrace();
+		cachedFile?.let {
+			if (!it.optionValue || !correctSide()) {
+				if (it.cachedLocation == null) return
+
+				try {
+					Files.deleteIfExists(Paths.get(packFolder, it.cachedLocation))
+				} catch (e: IOException) {
+					// TODO: how much of a problem is this? use log4j/other log library to show warning?
+					e.printStackTrace()
+				}
+				it.cachedLocation = null
 			}
-			cachedFile.setCachedLocation(null);
-			return;
 		}
+		if (alreadyUpToDate) return
 
-		if (alreadyUpToDate) return;
-
-		Path destPath = Paths.get(packFolder, Objects.requireNonNull(metadata.getDestURI()).toString());
+		// TODO: should I be validating JSON properly, or this fine!!!!!!!??
+		assert(metadata.destURI != null)
+		val destPath = Paths.get(packFolder, metadata.destURI.toString())
 
 		// Don't update files marked with preserve if they already exist on disk
-		if (metadata.getPreserve()) {
+		if (metadata.preserve) {
 			if (destPath.toFile().exists()) {
-				return;
+				return
 			}
 		}
 
 		try {
-			Hash hash;
-			String fileHashFormat;
-			ModFile linkedFile = metadata.getLinkedFile();
+			val hash: Hash
+			val fileHashFormat: String
+			val linkedFile = metadata.linkedFile
+
 			if (linkedFile != null) {
-				hash = linkedFile.getHash();
-				fileHashFormat = Objects.requireNonNull(linkedFile.getDownload()).getHashFormat();
+				hash = linkedFile.hash
+				fileHashFormat = Objects.requireNonNull(Objects.requireNonNull(linkedFile.download)!!.hashFormat)!!
 			} else {
-				hash = metadata.getHashObj();
-				fileHashFormat = metadata.getHashFormat();
+				hash = metadata.getHashObj()
+				fileHashFormat = Objects.requireNonNull(metadata.hashFormat)!!
 			}
 
-			Source src = metadata.getSource(indexUri);
-			assert fileHashFormat != null;
-			GeneralHashingSource fileSource = HashUtils.getHasher(fileHashFormat).getHashingSource(src);
-			Buffer data = new Buffer();
-			Okio.buffer(fileSource).readAll(data);
+			val src = metadata.getSource(indexUri)
+			val fileSource = getHasher(fileHashFormat).getHashingSource(src)
+			val data = Buffer()
+
+			// Read all the data into a buffer (very inefficient for large files! but allows rollback if hash check fails)
+			// TODO: should we instead rename the existing file, then stream straight to the file and rollback from the renamed file?
+			fileSource.buffer().use {
+				it.readAll(data)
+			}
 
 			if (fileSource.hashIsEqual(hash)) {
-				Files.createDirectories(destPath.getParent());
-				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING);
+				Files.createDirectories(destPath.parent)
+				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING)
+				data.clear()
 			} else {
-				// TODO: no more SYSOUT!!!!!!!!!
-				System.out.println("Invalid hash for " + metadata.getDestURI().toString());
-				System.out.println("Calculated: " + fileSource.getHash());
-				System.out.println("Expected:   " + hash);
-				failure = new Exception("Hash invalid!");
+				// TODO: no more PRINTLN!!!!!!!!!
+				println("Invalid hash for " + metadata.destURI.toString())
+				println("Calculated: " + fileSource.hash)
+				println("Expected:   $hash")
+				err = Exception("Hash invalid!")
 			}
-
-			if (cachedFile.getCachedLocation() != null && !destPath.equals(Paths.get(packFolder, cachedFile.getCachedLocation()))) {
-				// Delete old file if location changes
-				Files.delete(Paths.get(packFolder, cachedFile.getCachedLocation()));
+			cachedFile?.cachedLocation?.let {
+				if (destPath != Paths.get(packFolder, it)) {
+					// Delete old file if location changes
+					Files.delete(Paths.get(packFolder, cachedFile!!.cachedLocation))
+				}
 			}
-		} catch (Exception e) {
-			failure = e;
+		} catch (e: Exception) {
+			err = e
 		}
-		if (failure == null) {
-			if (cachedFile == null) {
-				cachedFile = new ManifestFile.File();
-			}
+
+		if (err == null) {
 			// Update the manifest file
-			try {
-				cachedFile.setHash(metadata.getHashObj());
-			} catch (Exception e) {
-				failure = e;
-				return;
-			}
-			cachedFile.setOptional(isOptional());
-			cachedFile.setCachedLocation(metadata.getDestURI().toString());
-			if (metadata.getLinkedFile() != null) {
+			cachedFile = (cachedFile ?: ManifestFile.File()).also {
 				try {
-					cachedFile.setLinkedFileHash(metadata.getLinkedFile().getHash());
-				} catch (Exception e) {
-					failure = e;
+					it.hash = metadata.getHashObj()
+				} catch (e: Exception) {
+					err = e
+					return
+				}
+				it.isOptional = isOptional
+				it.cachedLocation = metadata.destURI.toString()
+				metadata.linkedFile?.let { linked ->
+					try {
+						it.linkedFileHash = linked.hash
+					} catch (e: Exception) {
+						err = e
+					}
 				}
 			}
 		}
 	}
 
-	public Exception getException() {
-		return failure;
-	}
-
-	boolean isOptional() {
-		if (metadata.getLinkedFile() != null) {
-			return metadata.getLinkedFile().isOptional();
+	companion object {
+		@JvmStatic
+		fun createTasksFromIndex(index: IndexFile, defaultFormat: String, downloadSide: UpdateManager.Options.Side): List<DownloadTask> {
+			val tasks = ArrayList<DownloadTask>()
+			for (file in Objects.requireNonNull(index.files)) {
+				tasks.add(DownloadTask(file, defaultFormat, downloadSide))
+			}
+			return tasks
 		}
-		return false;
 	}
-
-	boolean isNewOptional() {
-		return isOptional() && this.newOptional;
-	}
-
-	boolean correctSide() {
-		if (metadata.getLinkedFile() != null && metadata.getLinkedFile().getSide() != null) {
-			return metadata.getLinkedFile().getSide().hasSide(downloadSide);
-		}
-		return true;
-	}
-
-	public String getName() {
-		return metadata.getName();
-	}
-
-	@Override
-	public boolean getOptionValue() {
-		return cachedFile.getOptionValue();
-	}
-
-	@Override
-	public String getOptionDescription() {
-		if (metadata.getLinkedFile() != null && metadata.getLinkedFile().getOption() != null) {
-			return metadata.getLinkedFile().getOption().getDescription();
-		}
-		return null;
-	}
-
-	public void setOptionValue(boolean value) {
-		if (value && !cachedFile.getOptionValue()) {
-			// Ensure that an update is done if it changes from false to true, or from true to false
-			alreadyUpToDate = false;
-		}
-		cachedFile.setOptionValue(value);
-	}
-
-	static List<DownloadTask> createTasksFromIndex(IndexFile index, String defaultFormat, UpdateManager.Options.Side downloadSide) {
-		ArrayList<DownloadTask> tasks = new ArrayList<>();
-		for (IndexFile.File file : Objects.requireNonNull(index.getFiles())) {
-			tasks.add(new DownloadTask(file, defaultFormat, downloadSide));
-		}
-		return tasks;
-	}
-
-
 }

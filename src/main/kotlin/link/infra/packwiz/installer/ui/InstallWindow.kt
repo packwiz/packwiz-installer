@@ -1,6 +1,6 @@
 package link.infra.packwiz.installer.ui
 
-import link.infra.packwiz.installer.ui.IExceptionDetails.ExceptionListResult
+import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import java.awt.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
@@ -186,7 +186,7 @@ class InstallWindow : IUserInterface {
 		return future
 	}
 
-	override fun showExceptions(exceptions: List<IExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
+	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
 		val future = CompletableFuture<ExceptionListResult>()
 		EventQueue.invokeLater {
 			ExceptionListWindow(exceptions, future, numTotal, allowsIgnore, frmPackwizlauncher).apply {
@@ -204,15 +204,15 @@ class InstallWindow : IUserInterface {
 		}
 	}
 
-	override fun showCancellationDialog(): Future<ExceptionListResult> {
-		val future = CompletableFuture<ExceptionListResult>()
+	override fun showCancellationDialog(): Future<IUserInterface.CancellationResult> {
+		val future = CompletableFuture<IUserInterface.CancellationResult>()
 		EventQueue.invokeLater {
 			val buttons = arrayOf("Quit", "Ignore")
 			val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
 					"The installation was cancelled. Would you like to quit the game, or ignore the update and start the game?",
 					"Cancelled installation",
 					JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, buttons, buttons[0])
-			future.complete(if (result == 0) ExceptionListResult.CANCEL else ExceptionListResult.IGNORE)
+			future.complete(if (result == 0) IUserInterface.CancellationResult.QUIT else IUserInterface.CancellationResult.CONTINUE)
 		}
 		return future
 	}

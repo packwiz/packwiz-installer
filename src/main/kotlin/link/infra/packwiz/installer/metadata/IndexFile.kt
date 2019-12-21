@@ -74,10 +74,11 @@ class IndexFile {
 		}
 
 		// TODO: throw some kind of exception?
-		val name: String?
+		val name: String
 			get() {
 				if (metafile) {
-					return linkedFile?.name ?: linkedFile?.filename
+					return linkedFile?.name ?: linkedFile?.filename ?:
+					file?.run { Paths.get(path).fileName.toString() } ?: "Invalid file"
 				}
 				return file?.run { Paths.get(path).fileName.toString() } ?: "Invalid file"
 			}

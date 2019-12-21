@@ -1,6 +1,5 @@
 package link.infra.packwiz.installer.ui
 
-import link.infra.packwiz.installer.ui.IExceptionDetails.ExceptionListResult
 import java.awt.BorderLayout
 import java.awt.Desktop
 import java.awt.event.WindowAdapter
@@ -14,10 +13,10 @@ import java.util.concurrent.CompletableFuture
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 
-internal class ExceptionListWindow(eList: List<IExceptionDetails>, future: CompletableFuture<ExceptionListResult>, numTotal: Int, allowsIgnore: Boolean, parentWindow: JFrame?) : JDialog(parentWindow, "Failed file downloads", true) {
+class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFuture<IUserInterface.ExceptionListResult>, numTotal: Int, allowsIgnore: Boolean, parentWindow: JFrame?) : JDialog(parentWindow, "Failed file downloads", true) {
 	private val lblExceptionStacktrace: JTextArea
 
-	private class ExceptionListModel internal constructor(private val details: List<IExceptionDetails>) : AbstractListModel<String>() {
+	private class ExceptionListModel internal constructor(private val details: List<ExceptionDetails>) : AbstractListModel<String>() {
 		override fun getSize() = details.size
 		override fun getElementAt(index: Int) = details[index].name
 		fun getExceptionAt(index: Int) = details[index].exception
@@ -90,7 +89,7 @@ internal class ExceptionListWindow(eList: List<IExceptionDetails>, future: Compl
 					add(JButton("Continue").apply {
 						toolTipText = "Attempt to continue installing, excluding the failed downloads"
 						addActionListener {
-							future.complete(ExceptionListResult.CONTINUE)
+							future.complete(IUserInterface.ExceptionListResult.CONTINUE)
 							this@ExceptionListWindow.dispose()
 						}
 					})
@@ -98,7 +97,7 @@ internal class ExceptionListWindow(eList: List<IExceptionDetails>, future: Compl
 					add(JButton("Cancel launch").apply {
 						toolTipText = "Stop launching the game"
 						addActionListener {
-							future.complete(ExceptionListResult.CANCEL)
+							future.complete(IUserInterface.ExceptionListResult.CANCEL)
 							this@ExceptionListWindow.dispose()
 						}
 					})
@@ -107,7 +106,7 @@ internal class ExceptionListWindow(eList: List<IExceptionDetails>, future: Compl
 						toolTipText = "Start the game without attempting to update"
 						isEnabled = allowsIgnore
 						addActionListener {
-							future.complete(ExceptionListResult.IGNORE)
+							future.complete(IUserInterface.ExceptionListResult.IGNORE)
 							this@ExceptionListWindow.dispose()
 						}
 					})
@@ -139,13 +138,13 @@ internal class ExceptionListWindow(eList: List<IExceptionDetails>, future: Compl
 
 		addWindowListener(object : WindowAdapter() {
 			override fun windowClosing(e: WindowEvent) {
-				future.complete(ExceptionListResult.CANCEL)
+				future.complete(IUserInterface.ExceptionListResult.CANCEL)
 			}
 
 			override fun windowClosed(e: WindowEvent) {
 				// Just in case closing didn't get triggered - if something else called dispose() the
 				// future will have already completed
-				future.complete(ExceptionListResult.CANCEL)
+				future.complete(IUserInterface.ExceptionListResult.CANCEL)
 			}
 		})
 	}
