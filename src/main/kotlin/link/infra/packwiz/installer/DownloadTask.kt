@@ -188,7 +188,12 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 			cachedFile?.cachedLocation?.let {
 				if (destPath != Paths.get(packFolder, it)) {
 					// Delete old file if location changes
-					Files.delete(Paths.get(packFolder, cachedFile!!.cachedLocation))
+					try {
+						Files.delete(Paths.get(packFolder, cachedFile!!.cachedLocation))
+					} catch (e: IOException) {
+						// Continue, as it was probably already deleted?
+						// TODO: log it
+					}
 				}
 			}
 		} catch (e: Exception) {
