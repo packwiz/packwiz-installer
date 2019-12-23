@@ -9,6 +9,7 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
 import link.infra.packwiz.installer.ui.ExceptionDetails
 import link.infra.packwiz.installer.ui.IOptionDetails
 import okio.Buffer
+import okio.HashingSink
 import okio.buffer
 import java.io.IOException
 import java.nio.file.Files
@@ -183,7 +184,13 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				println("Invalid hash for " + metadata.destURI.toString())
 				println("Calculated: " + fileSource.hash)
 				println("Expected:   $hash")
+				// Attempt to get the SHA256 hash
+				val sha256 = HashingSink.sha256(okio.blackholeSink())
+				data.readAll(sha256)
+				println("SHA256 hash value: " + sha256.hash)
 				err = Exception("Hash invalid!")
+				data.clear()
+				return
 			}
 			cachedFile?.cachedLocation?.let {
 				if (destPath != Paths.get(packFolder, it)) {
@@ -198,25 +205,24 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 			}
 		} catch (e: Exception) {
 			err = e
+			return
 		}
 
-		if (err == null) {
-			// Update the manifest file
-			cachedFile = (cachedFile ?: ManifestFile.File()).also {
+		// Update the manifest file
+		cachedFile = (cachedFile ?: ManifestFile.File()).also {
+			try {
+				it.hash = metadata.getHashObj()
+			} catch (e: Exception) {
+				err = e
+				return
+			}
+			it.isOptional = isOptional
+			it.cachedLocation = metadata.destURI.toString()
+			metadata.linkedFile?.let { linked ->
 				try {
-					it.hash = metadata.getHashObj()
+					it.linkedFileHash = linked.hash
 				} catch (e: Exception) {
 					err = e
-					return
-				}
-				it.isOptional = isOptional
-				it.cachedLocation = metadata.destURI.toString()
-				metadata.linkedFile?.let { linked ->
-					try {
-						it.linkedFileHash = linked.hash
-					} catch (e: Exception) {
-						err = e
-					}
 				}
 			}
 		}
