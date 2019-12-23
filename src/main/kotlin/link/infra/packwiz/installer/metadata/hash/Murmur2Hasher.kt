@@ -29,8 +29,8 @@ class Murmur2Hasher : IHasher {
 			val output = ByteArray(input.size)
 			var index = 0
 			for (b in input) {
-				when (b.toInt()) {
-					9, 10, 13, 32 -> {}
+				when (b) {
+					9.toByte(), 10.toByte(), 13.toByte(), 32.toByte() -> {}
 					else -> {
 						output[index] = b
 						index++

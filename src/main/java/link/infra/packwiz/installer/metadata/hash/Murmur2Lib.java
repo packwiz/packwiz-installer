@@ -74,13 +74,13 @@ public class Murmur2Lib {
     int left = length - len_m;
     if (left != 0) {
       if (left >= 3) {
-        h ^= (int) data[length - 3] << 16;
+        h ^= (int) data[length - (left - 2)] << 16;
       }
       if (left >= 2) {
-        h ^= (int) data[length - 2] << 8;
+        h ^= (int) data[length - (left - 1)] << 8;
       }
       if (left >= 1) {
-        h ^= (int) data[length - 1];
+        h ^= data[length - left];
       }
 
       h *= M_32;
@@ -152,7 +152,7 @@ public class Murmur2Lib {
       case 2:
         h ^= (long) (data[tailStart + 1] & 0xff) << 8;
       case 1:
-        h ^= (long) (data[tailStart] & 0xff);
+        h ^= data[tailStart] & 0xff;
         h *= M_64;
     }
 
