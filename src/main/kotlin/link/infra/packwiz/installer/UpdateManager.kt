@@ -126,7 +126,6 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		ui.submitProgress(InstallProgress("Loading pack file..."))
 		val packFileSource = try {
-			Objects.requireNonNull(opts.downloadURI)
 			val src = getFileSource(opts.downloadURI!!)
 			getHasher("sha256").getHashingSource(src)
 		} catch (e: Exception) {
@@ -191,12 +190,16 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 		try {
-			// This is badly written, I'll probably heavily refactor it at some point
-			// The port to Kotlin made this REALLY messy!!!!
-			getNewLoc(opts.downloadURI, Objects.requireNonNull(pf.index)!!.file)?.let {
-				pf.index!!.hashFormat?.let { it1 ->
-					processIndex(it,
-							getHash(Objects.requireNonNull(pf.index!!.hashFormat)!!, Objects.requireNonNull(pf.index!!.hash)!!), it1, manifest, invalidatedUris)
+			val index = pf.index!!
+			getNewLoc(opts.downloadURI, index.file)?.let { newLoc ->
+				index.hashFormat?.let { hashFormat ->
+					processIndex(
+						newLoc,
+						getHash(index.hashFormat!!, index.hash!!),
+						hashFormat,
+						manifest,
+						invalidatedUris
+					)
 				}
 			}
 		} catch (e1: Exception) {
