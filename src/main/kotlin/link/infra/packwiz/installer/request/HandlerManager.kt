@@ -1,6 +1,7 @@
 package link.infra.packwiz.installer.request
 
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
+import link.infra.packwiz.installer.request.handlers.RequestHandlerFile
 import link.infra.packwiz.installer.request.handlers.RequestHandlerGithub
 import link.infra.packwiz.installer.request.handlers.RequestHandlerHTTP
 import okio.Source
@@ -9,7 +10,8 @@ object HandlerManager {
 
 	private val handlers: List<IRequestHandler> = listOf(
 			RequestHandlerGithub(),
-			RequestHandlerHTTP()
+			RequestHandlerHTTP(),
+			RequestHandlerFile()
 	)
 
 	@JvmStatic
