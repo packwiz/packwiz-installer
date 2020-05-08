@@ -1,3 +1,5 @@
+@file:JvmName("Main")
+
 package link.infra.packwiz.installer
 
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
