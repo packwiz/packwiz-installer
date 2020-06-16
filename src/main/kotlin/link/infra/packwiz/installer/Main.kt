@@ -86,6 +86,7 @@ class Main(args: Array<String>) {
 
 	companion object {
 		// Called by packwiz-installer-bootstrap to set up the help command
+		@JvmStatic
 		fun addNonBootstrapOptions(options: Options) {
 			options.addOption("s", "side", true, "Side to install mods from (client/server, defaults to client)")
 			options.addOption(null, "title", true, "Title of the installer window")
@@ -94,6 +95,7 @@ class Main(args: Array<String>) {
 		}
 
 		// TODO: link these somehow so they're only defined once?
+		@JvmStatic
 		private fun addBootstrapOptions(options: Options) {
 			options.addOption(null, "bootstrap-update-url", true, "Github API URL for checking for updates")
 			options.addOption(null, "bootstrap-update-token", true, "Github API Access Token, for private repositories")
