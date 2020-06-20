@@ -65,7 +65,7 @@ class RequestHandlerGithub : RequestHandlerZip(true) {
 		if (!("http" == scheme || "https" == scheme)) {
 			return false
 		}
-		return "github.com" == loc.host
-		// TODO: sanity checks, support for more github urls
+		// TODO: more match testing?
+		return "github.com" == loc.host && branchMatcherPattern.matcher(loc.path).matches()
 	}
 }
