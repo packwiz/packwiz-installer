@@ -18,6 +18,9 @@ import kotlin.system.exitProcess
 
 @Suppress("unused")
 class Main(args: Array<String>) {
+	// Don't attempt to start a GUI if we are headless
+	var guiEnabled = !GraphicsEnvironment.isHeadless()
+
 	private fun startup(args: Array<String>) {
 		val options = Options()
 		addNonBootstrapOptions(options)
@@ -28,19 +31,24 @@ class Main(args: Array<String>) {
 			parser.parse(options, args)
 		} catch (e: ParseException) {
 			e.printStackTrace()
-			try {
-				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
-			} catch (e1: Exception) {
-				// Ignore the exceptions, just continue using the ugly L&F
+			if (guiEnabled) {
+				EventQueue.invokeAndWait {
+					try {
+						UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
+					} catch (ignored: Exception) {
+						// Ignore the exceptions, just continue using the ugly L&F
+					}
+					JOptionPane.showMessageDialog(null, e.message, "packwiz-installer", JOptionPane.ERROR_MESSAGE)
+				}
 			}
-			JOptionPane.showMessageDialog(null, e.message, "packwiz-installer", JOptionPane.ERROR_MESSAGE)
 			exitProcess(1)
 		}
 
-		// if "headless", GUI creation will fail anyway!
-		val ui = if (cmd.hasOption("no-gui") || GraphicsEnvironment.isHeadless()) {
-			CLIHandler()
-		} else InstallWindow()
+		if (guiEnabled && cmd.hasOption("no-gui")) {
+			guiEnabled = false
+		}
+
+		val ui = if (guiEnabled) InstallWindow() else CLIHandler()
 
 		val unparsedArgs = cmd.args
 		if (unparsedArgs.size > 1) {
@@ -49,15 +57,13 @@ class Main(args: Array<String>) {
 			ui.handleExceptionAndExit(RuntimeException("URI to install from must be specified!"))
 		}
 
-		cmd.getOptionValue("title")?.also {
-			ui.setTitle(it)
-		}
+		cmd.getOptionValue("title")?.also(ui::setTitle)
 
 		val inputStateHandler = InputStateHandler()
 		ui.show(inputStateHandler)
 
 		val uOptions = UpdateManager.Options().apply {
-			side = cmd.getOptionValue("side")?.let { UpdateManager.Options.Side.from(it) } ?: side
+			side = cmd.getOptionValue("side")?.let((UpdateManager.Options.Side)::from) ?: side
 			packFolder = cmd.getOptionValue("pack-folder") ?: packFolder
 			manifestFile = cmd.getOptionValue("meta-file") ?: manifestFile
 		}
@@ -113,11 +119,13 @@ class Main(args: Array<String>) {
 			startup(args)
 		} catch (e: Exception) {
 			e.printStackTrace()
-			EventQueue.invokeLater {
-				JOptionPane.showMessageDialog(null,
+			if (guiEnabled) {
+				EventQueue.invokeLater {
+					JOptionPane.showMessageDialog(null,
 						"A fatal error occurred: \n" + e.javaClass.canonicalName + ": " + e.message,
 						"packwiz-installer", JOptionPane.ERROR_MESSAGE)
-				exitProcess(1)
+					exitProcess(1)
+				}
 			}
 			// In case the EventQueue is broken, exit after 1 minute
 			Thread.sleep(60 * 1000.toLong())

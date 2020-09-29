@@ -10,10 +10,10 @@ import javax.swing.border.EmptyBorder
 import kotlin.system.exitProcess
 
 class InstallWindow : IUserInterface {
-	private val frmPackwizlauncher: JFrame
-	private val lblProgresslabel: JLabel
-	private val progressBar: JProgressBar
-	private val btnOptions: JButton
+	private lateinit var frmPackwizlauncher: JFrame
+	private lateinit var lblProgresslabel: JLabel
+	private lateinit var progressBar: JProgressBar
+	private lateinit var btnOptions: JButton
 
 	private var inputStateHandler: InputStateHandler? = null
 	private var title = "Updating modpack..."
@@ -23,55 +23,57 @@ class InstallWindow : IUserInterface {
 	// TODO: separate JFrame junk from IUserInterface junk?
 
 	init {
-		frmPackwizlauncher = JFrame().apply {
-			title = this@InstallWindow.title
-			setBounds(100, 100, 493, 95)
-			defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-			setLocationRelativeTo(null)
+		EventQueue.invokeAndWait {
+			frmPackwizlauncher = JFrame().apply {
+				title = this@InstallWindow.title
+				setBounds(100, 100, 493, 95)
+				defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+				setLocationRelativeTo(null)
 
-			// Progress bar and loading text
-			add(JPanel().apply {
-				border = EmptyBorder(10, 10, 10, 10)
-				layout = BorderLayout(0, 0)
+				// Progress bar and loading text
+				add(JPanel().apply {
+					border = EmptyBorder(10, 10, 10, 10)
+					layout = BorderLayout(0, 0)
 
-				progressBar = JProgressBar().apply {
-					isIndeterminate = true
-				}
-				add(progressBar, BorderLayout.CENTER)
-
-				lblProgresslabel = JLabel("Loading...")
-				add(lblProgresslabel, BorderLayout.SOUTH)
-			}, BorderLayout.CENTER)
-
-			// Buttons
-			add(JPanel().apply {
-				border = EmptyBorder(0, 5, 0, 5)
-				layout = GridBagLayout()
-
-				btnOptions = JButton("Optional mods...").apply {
-					alignmentX = Component.CENTER_ALIGNMENT
-
-					addActionListener {
-						text = "Loading..."
-						isEnabled = false
-						inputStateHandler?.pressOptionsButton()
+					progressBar = JProgressBar().apply {
+						isIndeterminate = true
 					}
-				}
-				add(btnOptions, GridBagConstraints().apply {
-					gridx = 0
-					gridy = 0
-				})
+					add(progressBar, BorderLayout.CENTER)
 
-				add(JButton("Cancel").apply {
-					addActionListener {
-						isEnabled = false
-						inputStateHandler?.pressCancelButton()
+					lblProgresslabel = JLabel("Loading...")
+					add(lblProgresslabel, BorderLayout.SOUTH)
+				}, BorderLayout.CENTER)
+
+				// Buttons
+				add(JPanel().apply {
+					border = EmptyBorder(0, 5, 0, 5)
+					layout = GridBagLayout()
+
+					btnOptions = JButton("Optional mods...").apply {
+						alignmentX = Component.CENTER_ALIGNMENT
+
+						addActionListener {
+							text = "Loading..."
+							isEnabled = false
+							inputStateHandler?.pressOptionsButton()
+						}
 					}
-				}, GridBagConstraints().apply {
-					gridx = 0
-					gridy = 1
-				})
-			}, BorderLayout.EAST)
+					add(btnOptions, GridBagConstraints().apply {
+						gridx = 0
+						gridy = 0
+					})
+
+					add(JButton("Cancel").apply {
+						addActionListener {
+							isEnabled = false
+							inputStateHandler?.pressCancelButton()
+						}
+					}, GridBagConstraints().apply {
+						gridx = 0
+						gridy = 1
+					})
+				}, BorderLayout.EAST)
+			}
 		}
 	}
 
