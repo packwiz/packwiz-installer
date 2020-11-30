@@ -255,8 +255,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			return
 		}
 		if (!indexFileSource.hashIsEqual(indexHash)) {
-			// TODO: throw exception
-			println("I was meant to put an error message here but I'll do that later")
+			ui.handleExceptionAndExit(RuntimeException("Your index hash is invalid! Please run packwiz refresh on the pack again"))
 			return
 		}
 		if (stateHandler.cancelButton) {
