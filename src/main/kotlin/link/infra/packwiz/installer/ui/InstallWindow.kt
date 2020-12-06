@@ -180,9 +180,16 @@ class InstallWindow : IUserInterface {
 	override fun showOptions(options: List<IOptionDetails>): Future<Boolean> {
 		val future = CompletableFuture<Boolean>()
 		EventQueue.invokeLater {
-			OptionsSelectWindow(options, future, frmPackwizlauncher).apply {
-				defaultCloseOperation = JDialog.DISPOSE_ON_CLOSE
-				isVisible = true
+			if (options.isEmpty()) {
+				JOptionPane.showMessageDialog(null,
+					"This modpack has no optional mods!",
+					"Optional mods", JOptionPane.INFORMATION_MESSAGE)
+				future.complete(false)
+			} else {
+				OptionsSelectWindow(options, future, frmPackwizlauncher).apply {
+					defaultCloseOperation = JDialog.DISPOSE_ON_CLOSE
+					isVisible = true
+				}
 			}
 		}
 		return future
@@ -201,7 +208,7 @@ class InstallWindow : IUserInterface {
 
 	override fun disableOptionsButton() {
 		btnOptions.apply {
-			text = "Optional mods..."
+			text = "No optional mods"
 			isEnabled = false
 		}
 	}
