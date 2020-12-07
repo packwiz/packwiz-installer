@@ -177,7 +177,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 			if (fileSource.hashIsEqual(hash)) {
 				// isDirectory follows symlinks, but createDirectories doesn't
-				if (Files.isDirectory(destPath.parent)) {
+				if (!Files.isDirectory(destPath.parent)) {
 					Files.createDirectories(destPath.parent)
 				}
 				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING)
