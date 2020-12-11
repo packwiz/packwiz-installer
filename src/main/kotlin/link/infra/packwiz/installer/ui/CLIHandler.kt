@@ -3,6 +3,7 @@ package link.infra.packwiz.installer.ui
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
+import kotlin.system.exitProcess
 
 class CLIHandler : IUserInterface {
 	override fun handleException(e: Exception) {
@@ -40,8 +41,11 @@ class CLIHandler : IUserInterface {
 	}
 
 	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
-		val future = CompletableFuture<ExceptionListResult>()
-		future.complete(ExceptionListResult.CANCEL)
-		return future
+		println("Failed to download modpack, the following errors were encountered:")
+		for (ex in exceptions) {
+			println(ex.name + ": ")
+			ex.exception.printStackTrace()
+		}
+		exitProcess(1)
 	}
 }

@@ -152,6 +152,9 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 			}
 		}
 
+		// TODO: if already exists and has correct hash, ignore?
+		// TODO: add .disabled support?
+
 		try {
 			val hash: Hash
 			val fileHashFormat: String
@@ -177,8 +180,12 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 			if (fileSource.hashIsEqual(hash)) {
 				// isDirectory follows symlinks, but createDirectories doesn't
-				if (!Files.isDirectory(destPath.parent)) {
+				try {
 					Files.createDirectories(destPath.parent)
+				} catch (e: FileAlreadyExistsException) {
+					if (!Files.isDirectory(destPath.parent)) {
+						throw e
+					}
 				}
 				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING)
 				data.clear()
