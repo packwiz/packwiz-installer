@@ -4,7 +4,7 @@ package link.infra.packwiz.installer
 
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.ui.cli.CLIHandler
-import link.infra.packwiz.installer.ui.gui.InstallWindow
+import link.infra.packwiz.installer.ui.gui.GUIHandler
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
@@ -47,7 +47,7 @@ class Main(args: Array<String>) {
 			guiEnabled = false
 		}
 
-		val ui = if (guiEnabled) InstallWindow() else CLIHandler()
+		val ui = if (guiEnabled) GUIHandler() else CLIHandler()
 
 		val unparsedArgs = cmd.args
 		if (unparsedArgs.size > 1) {
