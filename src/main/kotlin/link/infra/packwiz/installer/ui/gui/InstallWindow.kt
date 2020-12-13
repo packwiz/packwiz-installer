@@ -15,6 +15,8 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 
 	init {
 		setBounds(100, 100, 493, 95)
+		// Works better with tiling window managers - there isn't any reason to change window size currently anyway
+		isResizable = false
 		defaultCloseOperation = EXIT_ON_CLOSE
 		setLocationRelativeTo(null)
 
