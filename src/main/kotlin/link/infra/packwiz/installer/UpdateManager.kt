@@ -18,8 +18,7 @@ import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.CancellationResult
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
-import link.infra.packwiz.installer.ui.InputStateHandler
-import link.infra.packwiz.installer.ui.InstallProgress
+import link.infra.packwiz.installer.ui.data.InstallProgress
 import okio.buffer
 import java.io.FileNotFoundException
 import java.io.FileReader
@@ -34,7 +33,7 @@ import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
 import kotlin.system.exitProcess
 
-class UpdateManager internal constructor(private val opts: Options, val ui: IUserInterface, private val stateHandler: InputStateHandler) {
+class UpdateManager internal constructor(private val opts: Options, val ui: IUserInterface) {
 	private var cancelled = false
 	private var cancelledStartGame = false
 	private var errorsOccurred = false
@@ -119,7 +118,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			return
 		}
 
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			handleCancellation()
 		}
@@ -142,7 +141,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 		}
 
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			handleCancellation()
 		}
@@ -178,14 +177,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		if (manifest.packFileHash?.let { packFileSource.hashIsEqual(it) } == true && invalidatedUris.isEmpty()) {
 			println("Modpack is already up to date!")
 			// todo: --force?
-			if (!stateHandler.optionsButton) {
+			if (!ui.optionsButtonPressed) {
 				return
 			}
 		}
 
 		println("Modpack name: " + pf.name)
 
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			handleCancellation()
 		}
@@ -234,7 +233,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
 		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
 			println("Modpack files are already up to date!")
-			if (!stateHandler.optionsButton) {
+			if (!ui.optionsButtonPressed) {
 				return
 			}
 		}
@@ -258,7 +257,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			ui.handleExceptionAndExit(RuntimeException("Your index hash is invalid! Please run packwiz refresh on the pack again"))
 			return
 		}
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			return
 		}
@@ -295,7 +294,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 		}
 
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			return
 		}
@@ -326,7 +325,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			f.updateFromCache(file)
 		}
 
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			return
 		}
@@ -360,7 +359,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 		}
 
-		if (stateHandler.cancelButton) {
+		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			return
 		}
@@ -369,7 +368,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val nonFailedFirstTasks = tasks.filter { t -> !t.failed() }.toList()
 		val optionTasks = nonFailedFirstTasks.filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).toList()
 		// If options changed, present all options again
-		if (stateHandler.optionsButton || optionTasks.any(DownloadTask::isNewOptional)) {
+		if (ui.optionsButtonPressed || optionTasks.any(DownloadTask::isNewOptional)) {
 			// new ArrayList is required so it's an IOptionDetails rather than a DownloadTask list
 			val cancelledResult = ui.showOptions(ArrayList(optionTasks))
 			try {
@@ -433,7 +432,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 			ui.submitProgress(InstallProgress(progress, i + 1, tasks.size))
 
-			if (stateHandler.cancelButton) { // Stop all tasks, don't launch the game (it's in an invalid state!)
+			if (ui.cancelButtonPressed) { // Stop all tasks, don't launch the game (it's in an invalid state!)
 				threadPool.shutdown()
 				cancelled = true
 				return
@@ -483,6 +482,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 	}
 
+	// TODO: move to UI?
 	private fun handleCancellation() {
 		if (cancelled) {
 			println("Update cancelled by user!")

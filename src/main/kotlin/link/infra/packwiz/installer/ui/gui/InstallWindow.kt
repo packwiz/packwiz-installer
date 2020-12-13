@@ -1,10 +1,13 @@
-package link.infra.packwiz.installer.ui
+package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
+import link.infra.packwiz.installer.ui.data.ExceptionDetails
+import link.infra.packwiz.installer.ui.data.IOptionDetails
+import link.infra.packwiz.installer.ui.data.InstallProgress
 import java.awt.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 import kotlin.system.exitProcess
@@ -15,10 +18,12 @@ class InstallWindow : IUserInterface {
 	private lateinit var progressBar: JProgressBar
 	private lateinit var btnOptions: JButton
 
-	private var inputStateHandler: InputStateHandler? = null
+	@Volatile
+	override var optionsButtonPressed = false
+	@Volatile
+	override var cancelButtonPressed = false
+
 	private var title = "Updating modpack..."
-	private var worker: SwingWorkerButWithPublicPublish<Unit, InstallProgress>? = null
-	private val aboutToCrash = AtomicBoolean()
 
 	// TODO: separate JFrame junk from IUserInterface junk?
 
@@ -55,7 +60,7 @@ class InstallWindow : IUserInterface {
 						addActionListener {
 							text = "Loading..."
 							isEnabled = false
-							inputStateHandler?.pressOptionsButton()
+							optionsButtonPressed = true
 						}
 					}
 					add(btnOptions, GridBagConstraints().apply {
@@ -66,7 +71,7 @@ class InstallWindow : IUserInterface {
 					add(JButton("Cancel").apply {
 						addActionListener {
 							isEnabled = false
-							inputStateHandler?.pressCancelButton()
+							cancelButtonPressed = true
 						}
 					}, GridBagConstraints().apply {
 						gridx = 0
@@ -77,10 +82,10 @@ class InstallWindow : IUserInterface {
 		}
 	}
 
-	override fun show(handler: InputStateHandler) {
-		inputStateHandler = handler
+	override fun show() {
 		EventQueue.invokeLater {
 			try {
+				// TODO: shouldn't we do this before everything else?
 				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
 				frmPackwizlauncher.isVisible = true
 			} catch (e: Exception) {
@@ -89,9 +94,15 @@ class InstallWindow : IUserInterface {
 		}
 	}
 
+	override fun dispose() {
+		EventQueue.invokeAndWait {
+			frmPackwizlauncher.dispose()
+		}
+	}
+
 	override fun handleException(e: Exception) {
 		e.printStackTrace()
-		EventQueue.invokeLater {
+		EventQueue.invokeAndWait {
 			JOptionPane.showMessageDialog(null,
 					"An error occurred: \n" + e.javaClass.canonicalName + ": " + e.message,
 					title, JOptionPane.ERROR_MESSAGE)
@@ -100,27 +111,17 @@ class InstallWindow : IUserInterface {
 
 	override fun handleExceptionAndExit(e: Exception) {
 		e.printStackTrace()
-		// TODO: Fix this mess
-		// Used to prevent the done() handler of SwingWorker executing if the invokeLater hasn't happened yet
-		aboutToCrash.set(true)
-		EventQueue.invokeLater {
+		EventQueue.invokeAndWait {
 			JOptionPane.showMessageDialog(null,
 					"A fatal error occurred: \n" + e.javaClass.canonicalName + ": " + e.message,
 					title, JOptionPane.ERROR_MESSAGE)
 			exitProcess(1)
 		}
-		// Pause forever, so it blocks while we wait for System.exit to take effect
-		try {
-			Thread.currentThread().join()
-		} catch (ex: InterruptedException) { // no u
-		}
 	}
 
 	override fun setTitle(title: String) {
 		this.title = title
-		frmPackwizlauncher.let { frame ->
-			EventQueue.invokeLater { frame.title = title }
-		}
+		EventQueue.invokeLater { frmPackwizlauncher.title = title }
 	}
 
 	override fun submitProgress(progress: InstallProgress) {
@@ -135,45 +136,16 @@ class InstallWindow : IUserInterface {
 		sb.append(progress.message)
 		// TODO: better logging library?
 		println(sb.toString())
-		worker?.publishPublic(progress)
-	}
-
-	override fun executeManager(task: Function0<Unit>) {
 		EventQueue.invokeLater {
-			// TODO: rewrite this stupidity to use channels??!!!
-			worker = object : SwingWorkerButWithPublicPublish<Unit, InstallProgress>() {
-				override fun doInBackground() {
-					task.invoke()
-				}
-
-				override fun process(chunks: List<InstallProgress>) {
-					// Only process last chunk
-					if (chunks.isNotEmpty()) {
-						val (message, hasProgress, progress, progressTotal) = chunks[chunks.size - 1]
-						if (hasProgress) {
-							progressBar.isIndeterminate = false
-							progressBar.value = progress
-							progressBar.maximum = progressTotal
-						} else {
-							progressBar.isIndeterminate = true
-							progressBar.value = 0
-						}
-						lblProgresslabel.text = message
-					}
-				}
-
-				override fun done() {
-					if (aboutToCrash.get()) {
-						return
-					}
-					// TODO: a better way to do this?
-					frmPackwizlauncher.dispose()
-					println("Finished successfully!")
-					exitProcess(0)
-				}
-			}.also {
-				it.execute()
+			if (progress.hasProgress) {
+				progressBar.isIndeterminate = false
+				progressBar.value = progress.progress
+				progressBar.maximum = progress.progressTotal
+			} else {
+				progressBar.isIndeterminate = true
+				progressBar.value = 0
 			}
+			lblProgresslabel.text = progress.message
 		}
 	}
 
@@ -207,9 +179,11 @@ class InstallWindow : IUserInterface {
 	}
 
 	override fun disableOptionsButton() {
-		btnOptions.apply {
-			text = "No optional mods"
-			isEnabled = false
+		EventQueue.invokeLater {
+			btnOptions.apply {
+				text = "No optional mods"
+				isEnabled = false
+			}
 		}
 	}
 

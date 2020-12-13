@@ -6,8 +6,8 @@ import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
-import link.infra.packwiz.installer.ui.ExceptionDetails
-import link.infra.packwiz.installer.ui.IOptionDetails
+import link.infra.packwiz.installer.ui.data.ExceptionDetails
+import link.infra.packwiz.installer.ui.data.IOptionDetails
 import okio.Buffer
 import okio.HashingSink
 import okio.buffer

@@ -5,7 +5,7 @@ import okio.Source
 
 class HashingSourceHasher internal constructor(private val type: String) : IHasher {
 	// i love naming things
-	private inner class HashingSourceGeneralHashingSource internal constructor(val delegateHashing: HashingSource) : GeneralHashingSource(delegateHashing) {
+	private inner class HashingSourceGeneralHashingSource(val delegateHashing: HashingSource) : GeneralHashingSource(delegateHashing) {
 		override val hash: Hash by lazy(LazyThreadSafetyMode.NONE) {
 			HashingSourceHash(delegateHashing.hash.hex())
 		}

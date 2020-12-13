@@ -1,5 +1,6 @@
-package link.infra.packwiz.installer.ui
+package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.ui.data.IOptionDetails
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.event.ActionEvent
@@ -18,7 +19,7 @@ class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, fu
 	private val tableModel: OptionTableModel
 	private val future: CompletableFuture<Boolean>
 
-	private class OptionTableModel internal constructor(givenOpts: List<IOptionDetails>) : TableModel {
+	private class OptionTableModel(givenOpts: List<IOptionDetails>) : TableModel {
 		private val opts: List<OptionTempHandler>
 
 		init {

@@ -1,4 +1,4 @@
-package link.infra.packwiz.installer.ui
+package link.infra.packwiz.installer.ui.data
 
 data class ExceptionDetails(
 		val name: String,

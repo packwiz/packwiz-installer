@@ -1,4 +1,4 @@
-package link.infra.packwiz.installer.ui
+package link.infra.packwiz.installer.ui.data
 
 interface IOptionDetails {
 	val name: String

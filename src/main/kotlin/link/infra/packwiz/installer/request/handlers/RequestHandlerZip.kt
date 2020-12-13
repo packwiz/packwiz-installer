@@ -25,7 +25,7 @@ abstract class RequestHandlerZip(private val modeHasFolder: Boolean) : RequestHa
 		}
 	}
 
-	private inner class ZipReader internal constructor(zip: Source) {
+	private inner class ZipReader(zip: Source) {
 		private val zis = ZipInputStream(zip.buffer().inputStream())
 		private val readFiles: MutableMap<SpaceSafeURI, Buffer> = HashMap()
 		// Write lock implies access to ZipInputStream - only 1 thread must read at a time!

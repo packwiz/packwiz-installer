@@ -3,9 +3,8 @@
 package link.infra.packwiz.installer
 
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
-import link.infra.packwiz.installer.ui.CLIHandler
-import link.infra.packwiz.installer.ui.InputStateHandler
-import link.infra.packwiz.installer.ui.InstallWindow
+import link.infra.packwiz.installer.ui.cli.CLIHandler
+import link.infra.packwiz.installer.ui.gui.InstallWindow
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
@@ -19,7 +18,7 @@ import kotlin.system.exitProcess
 @Suppress("unused")
 class Main(args: Array<String>) {
 	// Don't attempt to start a GUI if we are headless
-	var guiEnabled = !GraphicsEnvironment.isHeadless()
+	private var guiEnabled = !GraphicsEnvironment.isHeadless()
 
 	private fun startup(args: Array<String>) {
 		val options = Options()
@@ -59,8 +58,7 @@ class Main(args: Array<String>) {
 
 		cmd.getOptionValue("title")?.also(ui::setTitle)
 
-		val inputStateHandler = InputStateHandler()
-		ui.show(inputStateHandler)
+		ui.show()
 
 		val uOptions = UpdateManager.Options().apply {
 			side = cmd.getOptionValue("side")?.let((UpdateManager.Options.Side)::from) ?: side
@@ -76,18 +74,13 @@ class Main(args: Array<String>) {
 		}
 
 		// Start update process!
-		// TODO: start in SwingWorker?
 		try {
-			ui.executeManager {
-				try {
-					UpdateManager(uOptions, ui, inputStateHandler)
-				} catch (e: Exception) { // TODO: better error message?
-					ui.handleExceptionAndExit(e)
-				}
-			}
+			UpdateManager(uOptions, ui)
 		} catch (e: Exception) { // TODO: better error message?
 			ui.handleExceptionAndExit(e)
 		}
+		println("Finished successfully!")
+		ui.dispose()
 	}
 
 	companion object {

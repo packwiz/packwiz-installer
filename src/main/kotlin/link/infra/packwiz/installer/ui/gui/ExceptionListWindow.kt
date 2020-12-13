@@ -1,5 +1,7 @@
-package link.infra.packwiz.installer.ui
+package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.ui.IUserInterface
+import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import java.awt.BorderLayout
 import java.awt.Desktop
 import java.awt.event.WindowAdapter
@@ -16,7 +18,7 @@ import javax.swing.border.EmptyBorder
 class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFuture<IUserInterface.ExceptionListResult>, numTotal: Int, allowsIgnore: Boolean, parentWindow: JFrame?) : JDialog(parentWindow, "Failed file downloads", true) {
 	private val lblExceptionStacktrace: JTextArea
 
-	private class ExceptionListModel internal constructor(private val details: List<ExceptionDetails>) : AbstractListModel<String>() {
+	private class ExceptionListModel(private val details: List<ExceptionDetails>) : AbstractListModel<String>() {
 		override fun getSize() = details.size
 		override fun getElementAt(index: Int) = details[index].name
 		fun getExceptionAt(index: Int) = details[index].exception

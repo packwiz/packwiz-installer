@@ -1,16 +1,26 @@
-package link.infra.packwiz.installer.ui
+package link.infra.packwiz.installer.ui.cli
 
+import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
+import link.infra.packwiz.installer.ui.data.ExceptionDetails
+import link.infra.packwiz.installer.ui.data.IOptionDetails
+import link.infra.packwiz.installer.ui.data.InstallProgress
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 import kotlin.system.exitProcess
 
 class CLIHandler : IUserInterface {
+	@Volatile
+	override var optionsButtonPressed = false
+	@Volatile
+	override var cancelButtonPressed = false
+
 	override fun handleException(e: Exception) {
 		e.printStackTrace()
 	}
 
-	override fun show(handler: InputStateHandler) {}
+	override fun show() {}
+	override fun dispose() {}
 	override fun submitProgress(progress: InstallProgress) {
 		val sb = StringBuilder()
 		if (progress.hasProgress) {
@@ -22,11 +32,6 @@ class CLIHandler : IUserInterface {
 		}
 		sb.append(progress.message)
 		println(sb.toString())
-	}
-
-	override fun executeManager(task: () -> Unit) {
-		task()
-		println("Finished successfully!")
 	}
 
 	override fun showOptions(options: List<IOptionDetails>): Future<Boolean> {
