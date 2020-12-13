@@ -336,17 +336,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val failedTaskDetails = tasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
 		if (failedTaskDetails.isNotEmpty()) {
 			errorsOccurred = true
-			val exceptionListResult: ExceptionListResult
-			exceptionListResult = try {
-				ui.showExceptions(failedTaskDetails, tasks.size, true).get()
-			} catch (e: InterruptedException) { // Interrupted means cancelled???
-				ui.handleExceptionAndExit(e)
-				return
-			} catch (e: ExecutionException) {
-				ui.handleExceptionAndExit(e)
-				return
-			}
-			when (exceptionListResult) {
+			when (ui.showExceptions(failedTaskDetails, tasks.size, true)) {
 				ExceptionListResult.CONTINUE -> {}
 				ExceptionListResult.CANCEL -> {
 					cancelled = true
@@ -370,18 +360,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		// If options changed, present all options again
 		if (ui.optionsButtonPressed || optionTasks.any(DownloadTask::isNewOptional)) {
 			// new ArrayList is required so it's an IOptionDetails rather than a DownloadTask list
-			val cancelledResult = ui.showOptions(ArrayList(optionTasks))
-			try {
-				if (cancelledResult.get()) {
-					cancelled = true
-					// TODO: Should the UI be closed somehow??
-					return
-				}
-			} catch (e: InterruptedException) {
-				// Interrupted means cancelled???
-				ui.handleExceptionAndExit(e)
-			} catch (e: ExecutionException) {
-				ui.handleExceptionAndExit(e)
+			if (ui.showOptions(ArrayList(optionTasks))) {
+				cancelled = true
+				handleCancellation()
 			}
 		}
 		ui.disableOptionsButton()
@@ -445,18 +426,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val failedTasks2ElectricBoogaloo = nonFailedFirstTasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
 		if (failedTasks2ElectricBoogaloo.isNotEmpty()) {
 			errorsOccurred = true
-			val exceptionListResult: ExceptionListResult
-			exceptionListResult = try {
-				ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size, false).get()
-			} catch (e: InterruptedException) {
-				// Interrupted means cancelled???
-				ui.handleExceptionAndExit(e)
-				return
-			} catch (e: ExecutionException) {
-				ui.handleExceptionAndExit(e)
-				return
-			}
-			when (exceptionListResult) {
+			when (ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size, false)) {
 				ExceptionListResult.CONTINUE -> {}
 				ExceptionListResult.CANCEL -> cancelled = true
 				ExceptionListResult.IGNORE -> cancelledStartGame = true
@@ -465,18 +435,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	}
 
 	private fun showCancellationDialog() {
-		val cancellationResult: CancellationResult
-		cancellationResult = try {
-			ui.showCancellationDialog().get()
-		} catch (e: InterruptedException) {
-			// Interrupted means cancelled???
-			ui.handleExceptionAndExit(e)
-			return
-		} catch (e: ExecutionException) {
-			ui.handleExceptionAndExit(e)
-			return
-		}
-		when (cancellationResult) {
+		when (ui.showCancellationDialog()) {
 			CancellationResult.QUIT -> cancelled = true
 			CancellationResult.CONTINUE -> cancelledStartGame = true
 		}

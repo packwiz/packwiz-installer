@@ -3,8 +3,6 @@ package link.infra.packwiz.installer.ui
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.ui.data.InstallProgress
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Future
 import kotlin.system.exitProcess
 
 interface IUserInterface {
@@ -19,16 +17,12 @@ interface IUserInterface {
 	fun setTitle(title: String) {}
 	fun submitProgress(progress: InstallProgress)
 	// Return true if the installation was cancelled!
-	fun showOptions(options: List<IOptionDetails>): Future<Boolean>
+	fun showOptions(options: List<IOptionDetails>): Boolean
 
-	fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult>
+	fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): ExceptionListResult
 	fun disableOptionsButton() {}
 
-	fun showCancellationDialog(): Future<CancellationResult> {
-		return CompletableFuture<CancellationResult>().apply {
-			complete(CancellationResult.QUIT)
-		}
-	}
+	fun showCancellationDialog(): CancellationResult = CancellationResult.QUIT
 
 	enum class ExceptionListResult {
 		CONTINUE, CANCEL, IGNORE

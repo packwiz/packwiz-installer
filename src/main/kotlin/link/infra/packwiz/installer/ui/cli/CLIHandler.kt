@@ -5,8 +5,6 @@ import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.ui.data.InstallProgress
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Future
 import kotlin.system.exitProcess
 
 class CLIHandler : IUserInterface {
@@ -34,18 +32,16 @@ class CLIHandler : IUserInterface {
 		println(sb.toString())
 	}
 
-	override fun showOptions(options: List<IOptionDetails>): Future<Boolean> {
+	override fun showOptions(options: List<IOptionDetails>): Boolean {
 		for (opt in options) {
 			opt.optionValue = true
 			// TODO: implement option choice in the CLI?
 			println("Warning: accepting option " + opt.name + " as option choosing is not implemented in the CLI")
 		}
-		return CompletableFuture<Boolean>().apply {
-			complete(false) // Can't be cancelled!
-		}
+		return false // Can't be cancelled!
 	}
 
-	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
+	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): ExceptionListResult {
 		println("Failed to download modpack, the following errors were encountered:")
 		for (ex in exceptions) {
 			println(ex.name + ": ")

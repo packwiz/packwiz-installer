@@ -7,7 +7,6 @@ import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import java.awt.EventQueue
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Future
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 import javax.swing.UIManager
@@ -86,9 +85,9 @@ class GUIHandler : IUserInterface {
 		}
 	}
 
-	override fun showOptions(options: List<IOptionDetails>): Future<Boolean> {
+	override fun showOptions(options: List<IOptionDetails>): Boolean {
 		val future = CompletableFuture<Boolean>()
-		EventQueue.invokeLater {
+		EventQueue.invokeAndWait {
 			if (options.isEmpty()) {
 				JOptionPane.showMessageDialog(null,
 					"This modpack has no optional mods!",
@@ -101,10 +100,10 @@ class GUIHandler : IUserInterface {
 				}
 			}
 		}
-		return future
+		return future.get()
 	}
 
-	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): Future<ExceptionListResult> {
+	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): ExceptionListResult {
 		val future = CompletableFuture<ExceptionListResult>()
 		EventQueue.invokeLater {
 			ExceptionListWindow(exceptions, future, numTotal, allowsIgnore, frmPackwizlauncher).apply {
@@ -112,14 +111,14 @@ class GUIHandler : IUserInterface {
 				isVisible = true
 			}
 		}
-		return future
+		return future.get()
 	}
 
 	override fun disableOptionsButton() = EventQueue.invokeLater {
 		frmPackwizlauncher.disableOptionsButton()
 	}
 
-	override fun showCancellationDialog(): Future<IUserInterface.CancellationResult> {
+	override fun showCancellationDialog(): IUserInterface.CancellationResult {
 		val future = CompletableFuture<IUserInterface.CancellationResult>()
 		EventQueue.invokeLater {
 			val buttons = arrayOf("Quit", "Ignore")
@@ -129,6 +128,6 @@ class GUIHandler : IUserInterface {
 					JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, buttons, buttons[0])
 			future.complete(if (result == 0) IUserInterface.CancellationResult.QUIT else IUserInterface.CancellationResult.CONTINUE)
 		}
-		return future
+		return future.get()
 	}
 }
