@@ -14,8 +14,6 @@ java {
 dependencies {
 	implementation("commons-cli:commons-cli:1.4")
 	implementation("com.moandjiezana.toml:toml4j:0.7.2")
-	// TODO: Implement tests
-	//testImplementation "junit:junit:4.12"
 	implementation("com.google.code.gson:gson:2.8.1")
 	implementation("com.squareup.okio:okio:2.2.2")
 	implementation(kotlin("stdlib-jdk8"))

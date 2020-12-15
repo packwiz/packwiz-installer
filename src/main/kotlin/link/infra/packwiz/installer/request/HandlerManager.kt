@@ -14,6 +14,7 @@ object HandlerManager {
 			RequestHandlerFile()
 	)
 
+	 // TODO: get rid of nullable stuff here
 	@JvmStatic
 	fun getNewLoc(base: SpaceSafeURI?, loc: SpaceSafeURI?): SpaceSafeURI? {
 		if (loc == null) {
@@ -31,6 +32,8 @@ object HandlerManager {
 	// TODO: What if files are read multiple times??
 	// Zip handler discards once read, requesting multiple times on other handlers would cause multiple downloads
 	// Caching system? Copy from already downloaded files?
+
+	// TODO: change to use something more idiomatic than exceptions?
 
 	@JvmStatic
 	@Throws(Exception::class)

@@ -5,6 +5,7 @@ import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.ui.data.InstallProgress
+import link.infra.packwiz.installer.util.Log
 import java.awt.EventQueue
 import java.util.concurrent.CompletableFuture
 import javax.swing.JDialog
@@ -27,8 +28,7 @@ class GUIHandler : IUserInterface {
 			try {
 				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
 			} catch (e: Exception) {
-				println("Failed to set look and feel:")
-				e.printStackTrace()
+				Log.warn("Failed to set look and feel", e)
 			}
 			frmPackwizlauncher = InstallWindow(this).apply {
 				title = this@GUIHandler.title
@@ -44,23 +44,23 @@ class GUIHandler : IUserInterface {
 		frmPackwizlauncher.dispose()
 	}
 
-	override fun handleException(e: Exception) {
-		e.printStackTrace()
-		EventQueue.invokeAndWait {
-			JOptionPane.showMessageDialog(null,
-					"An error occurred: \n" + e.javaClass.canonicalName + ": " + e.message,
+	override fun showErrorAndExit(message: String, e: Exception?): Nothing {
+		if (e != null) {
+			Log.fatal(message, e)
+			EventQueue.invokeAndWait {
+				JOptionPane.showMessageDialog(null,
+					"$message: $e",
 					title, JOptionPane.ERROR_MESSAGE)
-		}
-	}
-
-	override fun handleExceptionAndExit(e: Exception) {
-		e.printStackTrace()
-		EventQueue.invokeAndWait {
-			JOptionPane.showMessageDialog(null,
-					"A fatal error occurred: \n" + e.javaClass.canonicalName + ": " + e.message,
+			}
+		} else {
+			Log.fatal(message)
+			EventQueue.invokeAndWait {
+				JOptionPane.showMessageDialog(null,
+					message,
 					title, JOptionPane.ERROR_MESSAGE)
-			exitProcess(1)
+			}
 		}
+		exitProcess(1)
 	}
 
 	override fun setTitle(title: String) {
@@ -78,8 +78,7 @@ class GUIHandler : IUserInterface {
 			sb.append(") ")
 		}
 		sb.append(progress.message)
-		// TODO: better logging library?
-		println(sb.toString())
+		Log.info(sb.toString())
 		EventQueue.invokeLater {
 			frmPackwizlauncher.displayProgress(progress)
 		}

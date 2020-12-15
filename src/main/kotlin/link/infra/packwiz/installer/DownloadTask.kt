@@ -8,6 +8,7 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
+import link.infra.packwiz.installer.util.Log
 import okio.Buffer
 import okio.HashingSink
 import okio.buffer
@@ -125,6 +126,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 	fun download(packFolder: String, indexUri: SpaceSafeURI) {
 		if (err != null) return
 
+		// TODO: is this necessary if we overwrite?
 		// Ensure it is removed
 		cachedFile?.let {
 			if (!it.optionValue || !correctSide()) {
@@ -133,8 +135,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				try {
 					Files.deleteIfExists(Paths.get(packFolder, it.cachedLocation))
 				} catch (e: IOException) {
-					// TODO: how much of a problem is this? use log4j/other log library to show warning?
-					e.printStackTrace()
+					Log.warn("Failed to delete file before downloading", e)
 				}
 				it.cachedLocation = null
 			}
@@ -190,7 +191,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING)
 				data.clear()
 			} else {
-				// TODO: no more PRINTLN!!!!!!!!!
+				// TODO: move println to something visible in the error window
 				println("Invalid hash for " + metadata.destURI.toString())
 				println("Calculated: " + fileSource.hash)
 				println("Expected:   $hash")

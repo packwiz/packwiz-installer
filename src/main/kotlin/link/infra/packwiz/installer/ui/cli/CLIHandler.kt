@@ -5,6 +5,7 @@ import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.ui.data.InstallProgress
+import link.infra.packwiz.installer.util.Log
 import kotlin.system.exitProcess
 
 class CLIHandler : IUserInterface {
@@ -13,8 +14,13 @@ class CLIHandler : IUserInterface {
 	@Volatile
 	override var cancelButtonPressed = false
 
-	override fun handleException(e: Exception) {
-		e.printStackTrace()
+	override fun showErrorAndExit(message: String, e: Exception?): Nothing {
+		if (e != null) {
+			Log.fatal(message, e)
+		} else {
+			Log.fatal(message)
+		}
+		exitProcess(1)
 	}
 
 	override fun show() {}
@@ -36,7 +42,7 @@ class CLIHandler : IUserInterface {
 		for (opt in options) {
 			opt.optionValue = true
 			// TODO: implement option choice in the CLI?
-			println("Warning: accepting option " + opt.name + " as option choosing is not implemented in the CLI")
+			Log.warn("Accepting option ${opt.name} as option choosing is not implemented in the CLI")
 		}
 		return false // Can't be cancelled!
 	}
@@ -44,9 +50,9 @@ class CLIHandler : IUserInterface {
 	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): ExceptionListResult {
 		println("Failed to download modpack, the following errors were encountered:")
 		for (ex in exceptions) {
-			println(ex.name + ": ")
+			print(ex.name + ": ")
 			ex.exception.printStackTrace()
 		}
-		exitProcess(1)
+		return ExceptionListResult.CANCEL
 	}
 }

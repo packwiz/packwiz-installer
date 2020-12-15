@@ -19,6 +19,9 @@ import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.CancellationResult
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.InstallProgress
+import link.infra.packwiz.installer.util.Log
+import link.infra.packwiz.installer.util.ifletOrErr
+import link.infra.packwiz.installer.util.ifletOrWarn
 import okio.buffer
 import java.io.FileNotFoundException
 import java.io.FileReader
@@ -43,11 +46,17 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	}
 
 	data class Options(
-			var downloadURI: SpaceSafeURI? = null,
-			var manifestFile: String = "packwiz.json", // TODO: make configurable
-			var packFolder: String = ".",
-			var side: Side = Side.CLIENT
+		val downloadURI: SpaceSafeURI,
+		val manifestFile: String,
+		val packFolder: String,
+		val side: Side
 	) {
+		// Horrible workaround for default params not working cleanly with nullable values
+		companion object {
+			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, side: Side?) =
+				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", side ?: Side.CLIENT)
+		}
+
 		enum class Side {
 			@SerializedName("client")
 			CLIENT("client"),
@@ -111,11 +120,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		} catch (e: FileNotFoundException) {
 			ManifestFile()
 		} catch (e: JsonSyntaxException) {
-			ui.handleExceptionAndExit(e)
-			return
+			ui.showErrorAndExit("Invalid local manifest file, try deleting ${opts.manifestFile}", e)
 		} catch (e: JsonIOException) {
-			ui.handleExceptionAndExit(e)
-			return
+			ui.showErrorAndExit("Failed to read local manifest file, try deleting ${opts.manifestFile}", e)
 		}
 
 		if (ui.cancelButtonPressed) {
@@ -125,19 +132,16 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		ui.submitProgress(InstallProgress("Loading pack file..."))
 		val packFileSource = try {
-			val src = getFileSource(opts.downloadURI!!)
+			val src = getFileSource(opts.downloadURI)
 			getHasher("sha256").getHashingSource(src)
 		} catch (e: Exception) {
-			// TODO: run cancellation window?
-			ui.handleExceptionAndExit(e)
-			return
+			ui.showErrorAndExit("Failed to download pack.toml", e)
 		}
 		val pf = packFileSource.buffer().use {
 			try {
 				Toml().read(it.inputStream()).to(PackFile::class.java)
 			} catch (e: IllegalStateException) {
-				ui.handleExceptionAndExit(e)
-				return
+				ui.showErrorAndExit("Failed to parse pack.toml", e)
 			}
 		}
 
@@ -169,40 +173,41 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				}
 			}
 			if (invalid) {
-				println("File $fileUri invalidated, marked for redownloading")
+				Log.info("File $fileUri invalidated, marked for redownloading")
 				invalidatedUris.add(fileUri)
 			}
 		}
 
 		if (manifest.packFileHash?.let { packFileSource.hashIsEqual(it) } == true && invalidatedUris.isEmpty()) {
-			println("Modpack is already up to date!")
+			Log.info("Modpack is already up to date!")
 			// todo: --force?
 			if (!ui.optionsButtonPressed) {
 				return
 			}
 		}
 
-		println("Modpack name: " + pf.name)
+		Log.info("Modpack name: ${pf.name}")
 
 		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			handleCancellation()
 		}
 		try {
-			val index = pf.index!!
-			getNewLoc(opts.downloadURI, index.file)?.let { newLoc ->
-				index.hashFormat?.let { hashFormat ->
-					processIndex(
-						newLoc,
-						getHash(index.hashFormat!!, index.hash!!),
-						hashFormat,
-						manifest,
-						invalidatedUris
-					)
+			ifletOrWarn(pf.index, "No index file found") { index ->
+				ui.ifletOrErr(index.hashFormat, index.hash, "Pack has no hash or hashFormat for index") { hashFormat, hash ->
+					ui.ifletOrErr(getNewLoc(opts.downloadURI, index.file), "Pack has invalid index file: " + index.file) { newLoc ->
+						processIndex(
+							newLoc,
+							getHash(hashFormat, hash),
+							hashFormat,
+							manifest,
+							invalidatedUris
+						)
+					}
 				}
 			}
 		} catch (e1: Exception) {
-			ui.handleExceptionAndExit(e1)
+			ui.showErrorAndExit("Failed to process index file", e1)
 		}
 
 		handleCancellation()
@@ -221,8 +226,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		try {
 			FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString()).use { writer -> gson.toJson(manifest, writer) }
 		} catch (e: IOException) {
-			// TODO: add message?
-			ui.handleException(e)
+			ui.showErrorAndExit("Failed to save local manifest file", e)
 		}
 	}
 
@@ -232,7 +236,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
 		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
-			println("Modpack files are already up to date!")
+			Log.info("Modpack files are already up to date!")
 			if (!ui.optionsButtonPressed) {
 				return
 			}
@@ -243,20 +247,18 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			val src = getFileSource(indexUri)
 			getHasher(hashFormat).getHashingSource(src)
 		} catch (e: Exception) {
-			// TODO: run cancellation window?
-			ui.handleExceptionAndExit(e)
-			return
+			ui.showErrorAndExit("Failed to download index file", e)
 		}
+
 		val indexFile = try {
 			Toml().read(indexFileSource.buffer().inputStream()).to(IndexFile::class.java)
 		} catch (e: IllegalStateException) {
-			ui.handleExceptionAndExit(e)
-			return
+			ui.showErrorAndExit("Failed to parse index file", e)
 		}
 		if (!indexFileSource.hashIsEqual(indexHash)) {
-			ui.handleExceptionAndExit(RuntimeException("Your index hash is invalid! Please run packwiz refresh on the pack again"))
-			return
+			ui.showErrorAndExit("Your index file hash is invalid! The pack developer should packwiz refresh on the pack again")
 		}
+
 		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
 			return
@@ -274,8 +276,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					try {
 						Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))
 					} catch (e: IOException) {
-						// TODO: should this be shown to the user in some way?
-						e.printStackTrace()
+						Log.warn("Failed to delete optional disabled file", e)
 					}
 					// Set to null, as it doesn't exist anymore
 					file.cachedLocation = null
@@ -285,8 +286,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					if (!alreadyDeleted) {
 						try {
 							Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))
-						} catch (e: IOException) { // TODO: should this be shown to the user in some way?
-							e.printStackTrace()
+						} catch (e: IOException) {
+							Log.warn("Failed to delete file removed from index", e)
 						}
 					}
 					it.remove()
@@ -302,14 +303,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		// TODO: progress bar?
 		if (indexFile.files.isEmpty()) {
-			println("Warning: Index is empty!")
+			Log.warn("Index is empty!")
 		}
 		val tasks = createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side)
 		// If the side changes, invalidate EVERYTHING just in case
 		// Might not be needed, but done just to be safe
 		val invalidateAll = opts.side != manifest.cachedSide
 		if (invalidateAll) {
-			println("Side changed, invalidating all mods")
+			Log.info("Side changed, invalidating all mods")
 		}
 		tasks.forEach{ f ->
 			// TODO: should linkedfile be checked as well? should this be done in the download section?
@@ -377,18 +378,15 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 		}
 		for (i in tasks.indices) {
-			var task: DownloadTask?
-			task = try {
+			val task: DownloadTask = try {
 				completionService.take().get()
 			} catch (e: InterruptedException) {
-				ui.handleException(e)
-				null
+				ui.showErrorAndExit("Interrupted when consuming download tasks", e)
 			} catch (e: ExecutionException) {
-				ui.handleException(e)
-				null
+				ui.showErrorAndExit("Failed to execute download task", e)
 			}
 			// Update manifest - If there were no errors cachedFile has already been modified in place (good old pass by reference)
-			task?.cachedFile?.let { file ->
+			task.cachedFile?.let { file ->
 				if (task.failed()) {
 					val oldFile = file.revert
 					if (oldFile != null) {
@@ -399,17 +397,11 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				}
 			}
 
-			var progress: String
-			if (task != null) {
-				val exDetails = task.exceptionDetails
-				if (exDetails != null) {
-					progress = "Failed to download ${exDetails.name}: ${exDetails.exception.message}"
-					exDetails.exception.printStackTrace()
-				} else {
-					progress = "Downloaded ${task.name}"
-				}
+			val exDetails = task.exceptionDetails
+			val progress = if (exDetails != null) {
+				"Failed to download ${exDetails.name}: ${exDetails.exception.message}"
 			} else {
-				progress = "Failed to download, unknown reason"
+				"Downloaded ${task.name}"
 			}
 			ui.submitProgress(InstallProgress(progress, i + 1, tasks.size))
 

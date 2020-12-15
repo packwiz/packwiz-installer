@@ -5,6 +5,7 @@ package link.infra.packwiz.installer
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.ui.cli.CLIHandler
 import link.infra.packwiz.installer.ui.gui.GUIHandler
+import link.infra.packwiz.installer.util.Log
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
@@ -29,7 +30,7 @@ class Main(args: Array<String>) {
 		val cmd = try {
 			parser.parse(options, args)
 		} catch (e: ParseException) {
-			e.printStackTrace()
+			Log.fatal("Failed to parse command line arguments", e)
 			if (guiEnabled) {
 				EventQueue.invokeAndWait {
 					try {
@@ -37,7 +38,8 @@ class Main(args: Array<String>) {
 					} catch (ignored: Exception) {
 						// Ignore the exceptions, just continue using the ugly L&F
 					}
-					JOptionPane.showMessageDialog(null, e.message, "packwiz-installer", JOptionPane.ERROR_MESSAGE)
+					JOptionPane.showMessageDialog(null, "Failed to parse command line arguments: $e",
+						"packwiz-installer", JOptionPane.ERROR_MESSAGE)
 				}
 			}
 			exitProcess(1)
@@ -51,33 +53,34 @@ class Main(args: Array<String>) {
 
 		val unparsedArgs = cmd.args
 		if (unparsedArgs.size > 1) {
-			ui.handleExceptionAndExit(RuntimeException("Too many arguments specified!"))
+			ui.showErrorAndExit("Too many arguments specified!")
 		} else if (unparsedArgs.isEmpty()) {
-			ui.handleExceptionAndExit(RuntimeException("URI to install from must be specified!"))
+			ui.showErrorAndExit("pack.toml URI to install from must be specified!")
 		}
 
-		cmd.getOptionValue("title")?.also(ui::setTitle)
+		val title = cmd.getOptionValue("title")
+		if (title != null) {
+			ui.setTitle(title)
+		}
 
 		ui.show()
 
-		val uOptions = UpdateManager.Options().apply {
-			side = cmd.getOptionValue("side")?.let((UpdateManager.Options.Side)::from) ?: side
-			packFolder = cmd.getOptionValue("pack-folder") ?: packFolder
-			manifestFile = cmd.getOptionValue("meta-file") ?: manifestFile
-		}
-
-		try {
-			uOptions.downloadURI = SpaceSafeURI(unparsedArgs[0])
+		val uOptions = try {
+			UpdateManager.Options.construct(
+				downloadURI = SpaceSafeURI(unparsedArgs[0]),
+				side = cmd.getOptionValue("side")?.let((UpdateManager.Options.Side)::from),
+				packFolder = cmd.getOptionValue("pack-folder"),
+				manifestFile = cmd.getOptionValue("meta-file")
+			)
 		} catch (e: URISyntaxException) {
-			// TODO: better error message?
-			ui.handleExceptionAndExit(e)
+			ui.showErrorAndExit("Failed to read pack.toml URI", e)
 		}
 
 		// Start update process!
 		try {
 			UpdateManager(uOptions, ui)
-		} catch (e: Exception) { // TODO: better error message?
-			ui.handleExceptionAndExit(e)
+		} catch (e: Exception) {
+			ui.showErrorAndExit("Update process failed", e)
 		}
 		println("Finished successfully!")
 		ui.dispose()
@@ -111,17 +114,17 @@ class Main(args: Array<String>) {
 		try {
 			startup(args)
 		} catch (e: Exception) {
-			e.printStackTrace()
+			Log.fatal("Error from main", e)
 			if (guiEnabled) {
 				EventQueue.invokeLater {
 					JOptionPane.showMessageDialog(null,
-						"A fatal error occurred: \n" + e.javaClass.canonicalName + ": " + e.message,
+						"A fatal error occurred: \n$e",
 						"packwiz-installer", JOptionPane.ERROR_MESSAGE)
 					exitProcess(1)
 				}
+				// In case the EventQueue is broken, exit after 1 minute
+				Thread.sleep(60 * 1000.toLong())
 			}
-			// In case the EventQueue is broken, exit after 1 minute
-			Thread.sleep(60 * 1000.toLong())
 			exitProcess(1)
 		}
 	}
