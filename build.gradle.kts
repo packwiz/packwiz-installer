@@ -16,7 +16,6 @@ plugins {
 	id("com.palantir.git-version") version "0.12.3"
 	id("com.github.breadmoirai.github-release") version "2.2.12"
 	kotlin("jvm") version "1.4.21"
-	kotlin("plugin.serialization") version "1.4.21"
 }
 
 java {
