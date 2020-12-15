@@ -13,6 +13,10 @@ class CLIHandler : IUserInterface {
 	override var optionsButtonPressed = false
 	@Volatile
 	override var cancelButtonPressed = false
+	@Volatile
+	override var firstInstall = false
+
+	override var title: String = ""
 
 	override fun showErrorAndExit(message: String, e: Exception?): Nothing {
 		if (e != null) {

@@ -20,8 +20,14 @@ class GUIHandler : IUserInterface {
 	override var optionsButtonPressed = false
 	@Volatile
 	override var cancelButtonPressed = false
+	@Volatile
+	override var firstInstall = false
 
-	private var title = "Updating modpack..."
+	override var title = "packwiz-installer"
+		set(value) {
+			field = value
+			EventQueue.invokeLater { frmPackwizlauncher.title = value }
+		}
 
 	init {
 		EventQueue.invokeAndWait {
@@ -45,27 +51,39 @@ class GUIHandler : IUserInterface {
 	}
 
 	override fun showErrorAndExit(message: String, e: Exception?): Nothing {
+		val buttons = arrayOf("Quit", if (firstInstall) "Continue without installing" else "Continue without updating")
 		if (e != null) {
 			Log.fatal(message, e)
 			EventQueue.invokeAndWait {
-				JOptionPane.showMessageDialog(null,
+				val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
 					"$message: $e",
-					title, JOptionPane.ERROR_MESSAGE)
+					title,
+					JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE, null, buttons, buttons[0])
+				if (result == 1) {
+					Log.info("User selected to continue without installing/updating, exiting with code 0...")
+					exitProcess(0)
+				} else {
+					Log.info("User selected to quit, exiting with code 1...")
+					exitProcess(1)
+				}
 			}
 		} else {
 			Log.fatal(message)
 			EventQueue.invokeAndWait {
-				JOptionPane.showMessageDialog(null,
+				val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
 					message,
-					title, JOptionPane.ERROR_MESSAGE)
+					title,
+					JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE, null, buttons, buttons[0])
+				if (result == 1) {
+					Log.info("User selected to continue without installing/updating, exiting with code 0...")
+					exitProcess(0)
+				} else {
+					Log.info("User selected to quit, exiting with code 1...")
+					exitProcess(1)
+				}
 			}
 		}
 		exitProcess(1)
-	}
-
-	override fun setTitle(title: String) {
-		this.title = title
-		EventQueue.invokeLater { frmPackwizlauncher.title = title }
 	}
 
 	override fun submitProgress(progress: InstallProgress) {

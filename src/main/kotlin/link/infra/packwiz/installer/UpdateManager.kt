@@ -118,6 +118,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			gson.fromJson(FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
 					ManifestFile::class.java)
 		} catch (e: FileNotFoundException) {
+			ui.firstInstall = true
 			ManifestFile()
 		} catch (e: JsonSyntaxException) {
 			ui.showErrorAndExit("Invalid local manifest file, try deleting ${opts.manifestFile}", e)

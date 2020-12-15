@@ -60,7 +60,7 @@ class Main(args: Array<String>) {
 
 		val title = cmd.getOptionValue("title")
 		if (title != null) {
-			ui.setTitle(title)
+			ui.title = title
 		}
 
 		ui.show()

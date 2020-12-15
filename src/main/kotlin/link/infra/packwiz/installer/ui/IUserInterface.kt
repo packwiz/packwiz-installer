@@ -13,7 +13,7 @@ interface IUserInterface {
 	}
 	fun showErrorAndExit(message: String, e: Exception?): Nothing
 
-	fun setTitle(title: String) {}
+	var title: String
 	fun submitProgress(progress: InstallProgress)
 	// Return true if the installation was cancelled!
 	fun showOptions(options: List<IOptionDetails>): Boolean
@@ -33,4 +33,6 @@ interface IUserInterface {
 
 	var optionsButtonPressed: Boolean
 	var cancelButtonPressed: Boolean
+
+	var firstInstall: Boolean
 }
