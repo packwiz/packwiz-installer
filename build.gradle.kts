@@ -1,21 +1,36 @@
+buildscript {
+	repositories {
+		jcenter()
+	}
+	dependencies {
+		classpath("com.guardsquare:proguard-gradle:7.0.0") {
+			exclude("com.android.tools.build")
+		}
+	}
+}
+
 plugins {
 	java
 	application
-	id("com.github.johnrengelman.shadow") version "5.0.0"
-	id("com.palantir.git-version") version "0.11.0"
-	id("com.github.breadmoirai.github-release") version "2.2.9"
-	kotlin("jvm") version "1.3.61"
+	id("com.github.johnrengelman.shadow") version "6.1.0"
+	id("com.palantir.git-version") version "0.12.3"
+	id("com.github.breadmoirai.github-release") version "2.2.12"
+	kotlin("jvm") version "1.4.21"
+	kotlin("plugin.serialization") version "1.4.21"
 }
 
 java {
 	sourceCompatibility = JavaVersion.VERSION_1_8
 }
 
+val shrinkClasspath: Configuration by configurations.creating
+
 dependencies {
 	implementation("commons-cli:commons-cli:1.4")
+	shrinkClasspath("commons-cli:commons-cli:1.4")
 	implementation("com.moandjiezana.toml:toml4j:0.7.2")
 	implementation("com.google.code.gson:gson:2.8.1")
-	implementation("com.squareup.okio:okio:2.2.2")
+	implementation("com.squareup.okio:okio:2.9.0")
 	implementation(kotlin("stdlib-jdk8"))
 }
 
@@ -45,9 +60,26 @@ tasks.shadowJar {
 	}
 }
 
+tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
+	injars(tasks.shadowJar)
+	libraryjars(files(shrinkClasspath.files))
+	outjars("build/libs/" + tasks.shadowJar.get().outputs.files.first().name.removeSuffix(".jar") + "-shrink.jar")
+	if (System.getProperty("java.version").startsWith("1.")) {
+		libraryjars("${System.getProperty("java.home")}/lib/rt.jar")
+		libraryjars("${System.getProperty("java.home")}/lib/jce.jar")
+	} else {
+		throw RuntimeException("Compiling with Java 9+ not supported!")
+	}
+
+	keep("class link.infra.packwiz.installer.** { *; }")
+	dontoptimize()
+	dontobfuscate()
+	dontwarn("org.codehaus.mojo.animal_sniffer.*")
+}
+
 // Used for vscode launch.json
 tasks.register<Copy>("copyJar") {
-	from(tasks.shadowJar)
+	from(tasks.named("shrinkJar"))
 	rename("packwiz-installer-(.*)\\.jar", "packwiz-installer.jar")
 	into("build/libs/")
 }
