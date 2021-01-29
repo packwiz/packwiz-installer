@@ -35,6 +35,7 @@ class HashingSourceHasher internal constructor(private val type: String) : IHash
 			"md5" -> return HashingSourceGeneralHashingSource(HashingSource.md5(delegate))
 			"sha256" -> return HashingSourceGeneralHashingSource(HashingSource.sha256(delegate))
 			"sha512" -> return HashingSourceGeneralHashingSource(HashingSource.sha512(delegate))
+			"sha1" -> return HashingSourceGeneralHashingSource(HashingSource.sha1(delegate))
 		}
 		throw RuntimeException("Invalid hash type provided")
 	}
