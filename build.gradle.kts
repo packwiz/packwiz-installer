@@ -51,12 +51,22 @@ tasks.jar {
 	}
 }
 
+// TODO: build relocated jar for minecraft launcher lib, non-relocated jar for packwiz-installer
+tasks.register<com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation>("relocateShadowJar") {
+	target = tasks.shadowJar.get()
+	prefix = "link.infra.packwiz.deps"
+}
+
 // Commons CLI and Minimal JSON are already included in packwiz-installer-bootstrap
 tasks.shadowJar {
 	dependencies {
-		exclude(dependency("commons-cli:commons-cli:1.4"))
+		//exclude(dependency("commons-cli:commons-cli:1.4"))
 		exclude(dependency("com.eclipsesource.minimal-json:minimal-json:0.9.5"))
+		// TODO: exclude meta inf files
 	}
+	exclude("**/*.kotlin_metadata")
+	exclude("**/*.kotlin_builtins")
+	dependsOn(tasks.named("relocateShadowJar"))
 }
 
 tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
