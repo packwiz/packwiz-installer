@@ -19,7 +19,7 @@ interface IUserInterface {
 	fun showOptions(options: List<IOptionDetails>): Boolean
 
 	fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): ExceptionListResult
-	fun disableOptionsButton() {}
+	fun disableOptionsButton(hasOptions: Boolean) {}
 
 	fun showCancellationDialog(): CancellationResult = CancellationResult.QUIT
 

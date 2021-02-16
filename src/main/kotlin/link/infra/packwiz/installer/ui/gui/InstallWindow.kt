@@ -77,10 +77,10 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 		lblProgresslabel.text = progress.message
 	}
 
-	fun disableOptionsButton() {
+	fun disableOptionsButton(hasOptions: Boolean) {
 		btnOptions.apply {
-			text = "No optional mods"
-			isEnabled = false
+			text = if (hasOptions) { "Optional mods..." } else { "No optional mods" }
+ 			isEnabled = false
 		}
 	}
 }

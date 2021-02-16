@@ -131,8 +131,8 @@ class GUIHandler : IUserInterface {
 		return future.get()
 	}
 
-	override fun disableOptionsButton() = EventQueue.invokeLater {
-		frmPackwizlauncher.disableOptionsButton()
+	override fun disableOptionsButton(hasOptions: Boolean) = EventQueue.invokeLater {
+		frmPackwizlauncher.disableOptionsButton(hasOptions)
 	}
 
 	override fun showCancellationDialog(): IUserInterface.CancellationResult {

@@ -367,7 +367,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				handleCancellation()
 			}
 		}
-		ui.disableOptionsButton()
+		// TODO: keep this enabled? then apply changes after download process?
+		ui.disableOptionsButton(optionTasks.isNotEmpty())
 
 		// TODO: different thread pool type?
 		val threadPool = Executors.newFixedThreadPool(10)
