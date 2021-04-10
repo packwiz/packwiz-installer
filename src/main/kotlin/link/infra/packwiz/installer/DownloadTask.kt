@@ -6,6 +6,7 @@ import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
+import link.infra.packwiz.installer.target.Side
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.util.Log
@@ -18,7 +19,7 @@ import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
 
-internal class DownloadTask private constructor(val metadata: IndexFile.File, defaultFormat: String, private val downloadSide: UpdateManager.Options.Side) : IOptionDetails {
+internal class DownloadTask private constructor(val metadata: IndexFile.File, defaultFormat: String, private val downloadSide: Side) : IOptionDetails {
 	var cachedFile: ManifestFile.File? = null
 
 	private var err: Exception? = null
@@ -241,7 +242,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 	companion object {
 		@JvmStatic
-		fun createTasksFromIndex(index: IndexFile, defaultFormat: String, downloadSide: UpdateManager.Options.Side): List<DownloadTask> {
+		fun createTasksFromIndex(index: IndexFile, defaultFormat: String, downloadSide: Side): List<DownloadTask> {
 			val tasks = ArrayList<DownloadTask>()
 			for (file in Objects.requireNonNull(index.files)) {
 				tasks.add(DownloadTask(file, defaultFormat, downloadSide))

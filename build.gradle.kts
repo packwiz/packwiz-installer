@@ -126,12 +126,12 @@ if (project.hasProperty("github.token")) {
 tasks.compileKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
-		freeCompilerArgs = listOf("-Xjvm-default=enable")
+		freeCompilerArgs = listOf("-Xjvm-default=enable", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi")
 	}
 }
 tasks.compileTestKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
-		freeCompilerArgs = listOf("-Xjvm-default=enable")
+		freeCompilerArgs = listOf("-Xjvm-default=enable", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi")
 	}
 }

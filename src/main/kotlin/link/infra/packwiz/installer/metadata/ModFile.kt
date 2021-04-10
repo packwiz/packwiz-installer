@@ -1,17 +1,17 @@
 package link.infra.packwiz.installer.metadata
 
 import com.google.gson.annotations.SerializedName
-import link.infra.packwiz.installer.UpdateManager
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.request.HandlerManager.getFileSource
 import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
+import link.infra.packwiz.installer.target.Side
 import okio.Source
 
 class ModFile {
 	var name: String? = null
 	var filename: String? = null
-	var side: UpdateManager.Options.Side? = null
+	var side: Side? = null
 	var download: Download? = null
 
 	class Download {
