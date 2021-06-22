@@ -183,7 +183,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				// isDirectory follows symlinks, but createDirectories doesn't
 				try {
 					Files.createDirectories(destPath.parent)
-				} catch (e: FileAlreadyExistsException) {
+				} catch (e: java.nio.file.FileAlreadyExistsException) {
 					if (!Files.isDirectory(destPath.parent)) {
 						throw e
 					}
