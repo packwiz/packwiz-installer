@@ -17,6 +17,7 @@ plugins {
 	id("com.github.breadmoirai.github-release") version "2.2.12"
 	kotlin("jvm") version "1.4.21"
 	id("com.github.jk1.dependency-license-report") version "1.16"
+	`maven-publish`
 }
 
 java {
@@ -135,3 +136,29 @@ tasks.compileTestKotlin {
 		freeCompilerArgs = listOf("-Xjvm-default=enable", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi")
 	}
 }
+
+if (project.hasProperty("bunnycdn.token")) {
+	publishing {
+		publications {
+			create<MavenPublication>("maven") {
+				groupId = "link.infra.packwiz"
+				artifactId = "packwiz-installer"
+
+				from(components["java"])
+			}
+		}
+		repositories {
+			maven {
+				url = uri("https://storage.bunnycdn.com/comp-maven")
+				credentials(HttpHeaderCredentials::class) {
+					name = "AccessKey"
+					value = findProperty("bunnycdn.token") as String?
+				}
+				authentication {
+					create<HttpHeaderAuthentication>("header")
+				}
+			}
+		}
+	}
+}
+
