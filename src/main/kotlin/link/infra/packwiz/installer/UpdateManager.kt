@@ -21,7 +21,6 @@ import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
 import link.infra.packwiz.installer.util.ifletOrErr
-import link.infra.packwiz.installer.util.ifletOrWarn
 import okio.buffer
 import java.io.FileNotFoundException
 import java.io.FileReader
@@ -29,7 +28,6 @@ import java.io.FileWriter
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.util.*
 import java.util.concurrent.CompletionService
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorCompletionService
@@ -194,7 +192,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 		try {
-			ifletOrWarn(pf.index, "No index file found") { index ->
+			// TODO: switch to OkHttp for better redirect handling
+			ui.ifletOrErr(pf.index, "No index file found, or the pack file is empty; note that Java doesn't automatically follow redirects from HTTP to HTTPS (and may cause this error)") { index ->
 				ui.ifletOrErr(index.hashFormat, index.hash, "Pack has no hash or hashFormat for index") { hashFormat, hash ->
 					ui.ifletOrErr(getNewLoc(opts.downloadURI, index.file), "Pack has invalid index file: " + index.file) { newLoc ->
 						processIndex(
