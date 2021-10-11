@@ -14,6 +14,4 @@ class PackFile {
 	}
 
 	var versions: Map<String, String>? = null
-	var client: Map<String, Any>? = null
-	var server: Map<String, Any>? = null
 }
