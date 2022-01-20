@@ -1,9 +1,9 @@
 buildscript {
 	repositories {
-		jcenter()
+		mavenCentral()
 	}
 	dependencies {
-		classpath("com.guardsquare:proguard-gradle:7.0.0") {
+		classpath("com.guardsquare:proguard-gradle:7.1.0") {
 			exclude("com.android.tools.build")
 		}
 	}
@@ -12,11 +12,11 @@ buildscript {
 plugins {
 	java
 	application
-	id("com.github.johnrengelman.shadow") version "6.1.0"
-	id("com.palantir.git-version") version "0.12.3"
+	id("com.github.johnrengelman.shadow") version "7.1.2"
+	id("com.palantir.git-version") version "0.13.0"
 	id("com.github.breadmoirai.github-release") version "2.2.12"
-	kotlin("jvm") version "1.4.21"
-	id("com.github.jk1.dependency-license-report") version "1.16"
+	kotlin("jvm") version "1.6.10"
+	id("com.github.jk1.dependency-license-report") version "2.0"
 	`maven-publish`
 }
 
@@ -26,17 +26,17 @@ java {
 
 val shrinkClasspath: Configuration by configurations.creating
 
+repositories {
+	mavenCentral()
+}
+
 dependencies {
 	implementation("commons-cli:commons-cli:1.4")
 	shrinkClasspath("commons-cli:commons-cli:1.4")
 	implementation("com.moandjiezana.toml:toml4j:0.7.2")
-	implementation("com.google.code.gson:gson:2.8.1")
-	implementation("com.squareup.okio:okio:2.9.0")
+	implementation("com.google.code.gson:gson:2.8.9")
+	implementation("com.squareup.okio:okio:3.0.0")
 	implementation(kotlin("stdlib-jdk8"))
-}
-
-repositories {
-	jcenter()
 }
 
 application {
@@ -60,24 +60,17 @@ licenseReport {
 	filters = arrayOf<com.github.jk1.license.filter.DependencyFilter>(com.github.jk1.license.filter.LicenseBundleNormalizer())
 }
 
-// TODO: build relocated jar for minecraft launcher lib, non-relocated jar for packwiz-installer
-//tasks.register<com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation>("relocateShadowJar") {
-//	target = tasks.shadowJar.get()
-//	prefix = "link.infra.packwiz.deps"
-//}
-
 // Commons CLI and Minimal JSON are already included in packwiz-installer-bootstrap
 tasks.shadowJar {
 	dependencies {
 		exclude(dependency("commons-cli:commons-cli:1.4"))
 		exclude(dependency("com.eclipsesource.minimal-json:minimal-json:0.9.5"))
-		// TODO: exclude meta inf files
+		// TODO: exclude unnecessary meta inf files
 	}
 	exclude("**/*.kotlin_metadata")
 	exclude("**/*.kotlin_builtins")
 	exclude("META-INF/maven/**/*")
 	exclude("META-INF/proguard/**/*")
-	//dependsOn(tasks.named("relocateShadowJar"))
 }
 
 tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
@@ -88,13 +81,22 @@ tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
 		libraryjars("${System.getProperty("java.home")}/lib/rt.jar")
 		libraryjars("${System.getProperty("java.home")}/lib/jce.jar")
 	} else {
-		throw RuntimeException("Compiling with Java 9+ not supported!")
+		// Use jmods for Java 9+
+		val mods = listOf("java.base", "java.logging", "java.desktop", "java.sql")
+		for (mod in mods) {
+			libraryjars(mapOf(
+				"jarfilter" to "!**.jar",
+				"filter" to "!module-info.class"
+			), "${System.getProperty("java.home")}/jmods/$mod.jmod")
+		}
 	}
 
 	keep("class link.infra.packwiz.installer.** { *; }")
 	dontoptimize()
 	dontobfuscate()
 	dontwarn("org.codehaus.mojo.animal_sniffer.*")
+
+	// TODO: repackage commons CLI
 }
 
 // Used for vscode launch.json
