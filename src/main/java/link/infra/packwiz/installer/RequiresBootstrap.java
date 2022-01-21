@@ -8,8 +8,6 @@ public class RequiresBootstrap {
 	public static void main(String[] args) {
 		// Very small CLI implementation, because Commons CLI complains on unexpected
 		// options
-		// Also so that Commons CLI can be excluded from the shaded JAR, as it is
-		// included in the bootstrap
 		if (Arrays.stream(args).map(str -> {
 			if (str == null) return "";
 			if (str.startsWith("--")) {

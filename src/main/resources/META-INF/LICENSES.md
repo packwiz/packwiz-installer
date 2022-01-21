@@ -5,7 +5,7 @@ packwiz-installer itself is under the MIT license, except for Murmur2Lib and bun
 - Murmur2Lib: Apache 2.0 ([Source](https://github.com/prasanthj/hasher/blob/master/src/main/java/hasher/Murmur2.java))
 - Google Gson 2.8.9: Apache 2.0 ([Source](https://github.com/google/gson))
 - Okio 3.0.0: Apache 2.0 ([Source](https://github.com/square/okio/))
-- Commons CLI 1.4: Apache 2.0 ([Source](http://commons.apache.org/proper/commons-cli/))
+- Commons CLI 1.5: Apache 2.0 ([Source](http://commons.apache.org/proper/commons-cli/))
 - Jetbrains Annotations 13.0: Apache 2.0 ([Source](https://github.com/JetBrains/java-annotations))
 - Kotlin Standard Library 1.6.10: Apache 2.0 ([Source](https://github.com/JetBrains/kotlin))
 - toml4j 0.7.2: MIT ([Source](https://github.com/mwanji/toml4j))

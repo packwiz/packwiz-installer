@@ -24,15 +24,12 @@ java {
 	sourceCompatibility = JavaVersion.VERSION_1_8
 }
 
-val shrinkClasspath: Configuration by configurations.creating
-
 repositories {
 	mavenCentral()
 }
 
 dependencies {
-	implementation("commons-cli:commons-cli:1.4")
-	shrinkClasspath("commons-cli:commons-cli:1.4")
+	implementation("commons-cli:commons-cli:1.5.0")
 	implementation("com.moandjiezana.toml:toml4j:0.7.2")
 	implementation("com.google.code.gson:gson:2.8.9")
 	implementation("com.squareup.okio:okio:3.0.0")
@@ -60,22 +57,22 @@ licenseReport {
 	filters = arrayOf<com.github.jk1.license.filter.DependencyFilter>(com.github.jk1.license.filter.LicenseBundleNormalizer())
 }
 
-// Commons CLI and Minimal JSON are already included in packwiz-installer-bootstrap
 tasks.shadowJar {
-	dependencies {
-		exclude(dependency("commons-cli:commons-cli:1.4"))
-		exclude(dependency("com.eclipsesource.minimal-json:minimal-json:0.9.5"))
-		// TODO: exclude unnecessary meta inf files
-	}
 	exclude("**/*.kotlin_metadata")
 	exclude("**/*.kotlin_builtins")
 	exclude("META-INF/maven/**/*")
 	exclude("META-INF/proguard/**/*")
+
+	// Relocate Commons CLI, so that it doesn't clash with old packwiz-installer-bootstrap (that shades it)
+	relocate("org.apache.commons.cli", "link.infra.packwiz.installer.deps.commons-cli")
+
+	// from Commons CLI
+	exclude("META-INF/LICENSE.txt")
+	exclude("META-INF/NOTICE.txt")
 }
 
 tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
 	injars(tasks.shadowJar)
-	libraryjars(files(shrinkClasspath.files))
 	outjars("build/libs/" + tasks.shadowJar.get().outputs.files.first().name.removeSuffix(".jar") + "-shrink.jar")
 	if (System.getProperty("java.version").startsWith("1.")) {
 		libraryjars("${System.getProperty("java.home")}/lib/rt.jar")
@@ -95,8 +92,6 @@ tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
 	dontoptimize()
 	dontobfuscate()
 	dontwarn("org.codehaus.mojo.animal_sniffer.*")
-
-	// TODO: repackage commons CLI
 }
 
 // Used for vscode launch.json
