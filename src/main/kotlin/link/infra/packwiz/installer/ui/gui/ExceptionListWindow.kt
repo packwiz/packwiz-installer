@@ -125,7 +125,7 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 						if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
 							addActionListener {
 								try {
-									Desktop.getDesktop().browse(URI("https://github.com/comp500/packwiz-installer/issues/new"))
+									Desktop.getDesktop().browse(URI("https://github.com/packwiz/packwiz-installer/issues/new"))
 								} catch (e: IOException) {
 									// lol the button just won't work i guess
 								} catch (e: URISyntaxException) {}

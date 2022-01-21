@@ -1,6 +1,6 @@
 # Licenses
 
-packwiz-installer itself is under the MIT license, except for Murmur2Lib and bundled dependencies as follows:
+packwiz-installer itself is under the MIT license ([Source](https://github.com/packwiz/packwiz-installer)), except for Murmur2Lib and bundled dependencies as follows:
 
 - Murmur2Lib: Apache 2.0 ([Source](https://github.com/prasanthj/hasher/blob/master/src/main/java/hasher/Murmur2.java))
 - Google Gson 2.8.9: Apache 2.0 ([Source](https://github.com/google/gson))
