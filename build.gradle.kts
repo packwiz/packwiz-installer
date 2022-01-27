@@ -34,6 +34,7 @@ dependencies {
 	implementation("com.google.code.gson:gson:2.8.9")
 	implementation("com.squareup.okio:okio:3.0.0")
 	implementation(kotlin("stdlib-jdk8"))
+	implementation("com.squareup.okhttp3:okhttp:4.9.3")
 }
 
 application {
@@ -91,7 +92,13 @@ tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
 	keep("class link.infra.packwiz.installer.** { *; }")
 	dontoptimize()
 	dontobfuscate()
+
+	// Used by Okio and OkHttp
 	dontwarn("org.codehaus.mojo.animal_sniffer.*")
+	dontwarn("okhttp3.internal.platform.**")
+	dontwarn("org.conscrypt.**")
+	dontwarn("org.bouncycastle.**")
+	dontwarn("org.openjsse.**")
 }
 
 // Used for vscode launch.json
