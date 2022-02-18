@@ -1,11 +1,9 @@
 package link.infra.packwiz.installer.metadata
 
 import com.google.gson.annotations.JsonAdapter
+import link.infra.packwiz.installer.util.URIUtils
 import java.io.Serializable
-import java.net.MalformedURLException
-import java.net.URI
-import java.net.URISyntaxException
-import java.net.URL
+import java.net.*
 
 // The world's worst URI wrapper
 @JsonAdapter(SpaceSafeURIParser::class)
@@ -14,7 +12,7 @@ class SpaceSafeURI : Comparable<SpaceSafeURI>, Serializable {
 
 	@Throws(URISyntaxException::class)
 	constructor(str: String) {
-		u = URI(str.replace(" ", "%20"))
+		u = URI(URIUtils.encPath(str, Charsets.UTF_8))
 	}
 
 	constructor(uri: URI) {
@@ -24,19 +22,19 @@ class SpaceSafeURI : Comparable<SpaceSafeURI>, Serializable {
 	@Throws(URISyntaxException::class)
 	constructor(scheme: String?, authority: String?, path: String?, query: String?, fragment: String?) { // TODO: do all components need to be replaced?
 		u = URI(
-				scheme?.replace(" ", "%20"),
-				authority?.replace(" ", "%20"),
-				path?.replace(" ", "%20"),
-				query?.replace(" ", "%20"),
-				fragment?.replace(" ", "%20")
+				scheme,
+				authority,
+				URIUtils.encPath(path, Charsets.UTF_8),
+				URIUtils.encPath(query, Charsets.UTF_8),
+				fragment
 		)
 	}
 
-	val path: String get() = u.path.replace("%20", " ")
+	val path: String get() = URIUtils.urlDecode(u.path, Charsets.UTF_8, true)
 
-	override fun toString(): String = u.toString().replace("%20", " ")
+	override fun toString(): String =  URIUtils.urlDecode(u.toString(), Charsets.UTF_8, true)
 
-	fun resolve(path: String): SpaceSafeURI = SpaceSafeURI(u.resolve(path.replace(" ", "%20")))
+	fun resolve(path: String): SpaceSafeURI = SpaceSafeURI(u.resolve(path))
 
 	fun resolve(loc: SpaceSafeURI): SpaceSafeURI = SpaceSafeURI(u.resolve(loc.u))
 

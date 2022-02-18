@@ -7,6 +7,7 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
 import link.infra.packwiz.installer.request.HandlerManager.getFileSource
 import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
+import link.infra.packwiz.installer.util.URIUtils
 import okio.Source
 import okio.buffer
 import java.nio.file.Paths
@@ -90,7 +91,7 @@ class IndexFile {
 					return alias
 				}
 				return if (metafile && linkedFile != null) {
-					linkedFile?.filename?.let { file?.resolve(it) }
+					linkedFile?.filename?.let { file?.resolve(URIUtils.encPath(it, Charsets.UTF_8)) }
 				} else {
 					file
 				}

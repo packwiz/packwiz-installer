@@ -7,6 +7,7 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.request.HandlerManager.getFileSource
 import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
 import okio.Source
+import java.net.URI
 
 class ModFile {
 	var name: String? = null
@@ -15,7 +16,7 @@ class ModFile {
 	var download: Download? = null
 
 	class Download {
-		var url: SpaceSafeURI? = null
+		var url: URI? = null
 		@SerializedName("hash-format")
 		var hashFormat: String? = null
 		var hash: String? = null
@@ -37,7 +38,8 @@ class ModFile {
 			if (it.url == null) {
 				throw Exception("Metadata file doesn't have a download URI")
 			}
-			val newLoc = getNewLoc(baseLoc, it.url) ?: throw Exception("Metadata file URI is invalid")
+			val url = SpaceSafeURI(it.url!!)
+			val newLoc = getNewLoc(baseLoc, url) ?: throw Exception("Metadata file URI is invalid")
 			return getFileSource(newLoc)
 		} ?: throw Exception("Metadata file doesn't have download")
 	}
