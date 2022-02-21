@@ -9,6 +9,7 @@ packwiz-installer itself is under the MIT license ([Source](https://github.com/p
 - Jetbrains Annotations 13.0: Apache 2.0 ([Source](https://github.com/JetBrains/java-annotations))
 - Kotlin Standard Library 1.6.10: Apache 2.0 ([Source](https://github.com/JetBrains/kotlin))
 - toml4j 0.7.2: MIT ([Source](https://github.com/mwanji/toml4j))
+<!-- TODO: document kotlin-result -->
 
 ## Associated notices
 

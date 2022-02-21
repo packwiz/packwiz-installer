@@ -35,6 +35,7 @@ dependencies {
 	implementation("com.squareup.okio:okio:3.0.0")
 	implementation(kotlin("stdlib-jdk8"))
 	implementation("com.squareup.okhttp3:okhttp:4.9.3")
+	implementation("com.michael-bull.kotlin-result:kotlin-result:1.1.14")
 }
 
 application {

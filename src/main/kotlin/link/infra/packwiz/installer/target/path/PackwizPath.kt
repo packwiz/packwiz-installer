@@ -88,6 +88,8 @@ class PackwizPath(path: String, base: Base) {
 		 * @throws RequestException
 		 */
 		fun source(path: String, clientHolder: ClientHolder): BufferedSource
+
+		operator fun div(path: String) = PackwizPath(path, this)
 	}
 
 	interface SinkableBase: Base {
