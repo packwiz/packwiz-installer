@@ -78,9 +78,9 @@ class IndexFile {
 			get() {
 				if (metafile) {
 					return linkedFile?.name ?: linkedFile?.filename ?:
-					file?.run { Paths.get(path).fileName.toString() } ?: "Invalid file"
+					file?.run { Paths.get(path ?: return "Invalid file").fileName.toString() } ?: "Invalid file"
 				}
-				return file?.run { Paths.get(path).fileName.toString() } ?: "Invalid file"
+				return file?.run { Paths.get(path ?: return "Invalid file").fileName.toString() } ?: "Invalid file"
 			}
 
 		// TODO: URIs are bad

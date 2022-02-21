@@ -1,7 +1,6 @@
 package link.infra.packwiz.installer.request.handlers
 
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
-import java.util.*
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.regex.Pattern
 import kotlin.concurrent.read
@@ -21,7 +20,7 @@ class RequestHandlerGithub : RequestHandlerZip(true) {
 	private val zipUriMap: MutableMap<String, SpaceSafeURI> = HashMap()
 	private val zipUriLock = ReentrantReadWriteLock()
 	private fun getRepoName(loc: SpaceSafeURI): String? {
-		val matcher = repoMatcherPattern.matcher(loc.path)
+		val matcher = repoMatcherPattern.matcher(loc.path ?: return null)
 		return if (matcher.matches()) {
 			matcher.group(1)
 		} else {
@@ -47,7 +46,7 @@ class RequestHandlerGithub : RequestHandlerZip(true) {
 	}
 
 	private fun getBranch(loc: SpaceSafeURI): String? {
-		val matcher = branchMatcherPattern.matcher(loc.path)
+		val matcher = branchMatcherPattern.matcher(loc.path ?: return null)
 		return if (matcher.matches()) {
 			matcher.group(1)
 		} else {
@@ -66,6 +65,6 @@ class RequestHandlerGithub : RequestHandlerZip(true) {
 			return false
 		}
 		// TODO: more match testing?
-		return "github.com" == loc.host && branchMatcherPattern.matcher(loc.path).matches()
+		return "github.com" == loc.host && branchMatcherPattern.matcher(loc.path ?: return false).matches()
 	}
 }
