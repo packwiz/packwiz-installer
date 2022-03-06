@@ -1,32 +1,45 @@
 package link.infra.packwiz.installer.target
 
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
-import link.infra.packwiz.installer.metadata.hash.Hash
-import java.nio.file.Path
+import link.infra.packwiz.installer.target.path.PackwizPath
 
-data class Target(
+// TODO: rename to avoid conflicting with @Target
+interface Target {
+	val src: PackwizPath
+	val dest: PackwizPath
+	val validityToken: ValidityToken
+
 	/**
-	 * The name that uniquely identifies this target.
-	 * Often equal to the name of the metadata file for this target, and can be displayed to the user in progress UI.
+	 * Token interface for types used to compare Target identity. Implementations should use equals to indicate that
+	 * these tokens represent the same file; used to preserve optional target choices between file renames.
 	 */
-	val name: String,
+	interface IdentityToken
+
 	/**
-	 * An optional user-friendly name.
+	 * Default implementation of IdentityToken that assumes files are not renamed; so optional choices do not need to
+	 * be preserved across renames.
 	 */
-	val userFriendlyName: String?,
-	val src: SpaceSafeURI,
-	val dest: Path,
-	val hash: Hash,
-	val side: Side,
-	val optional: Boolean,
-	val optionalDefaultValue: Boolean,
-	val optionalDescription: String,
+	@JvmInline
+	value class PathIdentityToken(val path: String): IdentityToken
+
+	val ident: IdentityToken
+		get() = PathIdentityToken(dest.path)
+
 	/**
-	 * If this is true, don't update a target when the file already exists.
+	 * A user-friendly name; defaults to the destination path of the file.
 	 */
-	val noOverwrite: Boolean
-) {
-	fun Iterable<Target>.filterForSide(side: Side) = this.filter {
-		it.side.hasSide(side)
+	val name: String
+		get() = dest.path
+	val side: Side
+		get() = Side.BOTH
+	val overwriteMode: OverwriteMode
+		get() = OverwriteMode.IF_SRC_CHANGED
+
+	interface Optional: Target {
+		val optional: Boolean
+		val optionalDefaultValue: Boolean
+	}
+
+	interface OptionalDescribed: Optional {
+		val optionalDescription: String
 	}
 }
