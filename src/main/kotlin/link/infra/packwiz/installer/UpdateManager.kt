@@ -2,6 +2,7 @@ package link.infra.packwiz.installer
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonIOException
+import com.google.gson.JsonParser
 import com.google.gson.JsonSyntaxException
 import com.moandjiezana.toml.Toml
 import link.infra.packwiz.installer.DownloadTask.Companion.createTasksFromIndex
@@ -45,12 +46,13 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val downloadURI: SpaceSafeURI,
 		val manifestFile: String,
 		val packFolder: String,
+		val multimcFolder: String,
 		val side: Side
 	) {
 		// Horrible workaround for default params not working cleanly with nullable values
 		companion object {
-			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, side: Side?) =
-				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", side ?: Side.CLIENT)
+			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, multimcFolder: String?, side: Side?) =
+				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", multimcFolder ?: "..", side ?: Side.CLIENT)
 		}
 
 	}
@@ -59,7 +61,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		checkOptions()
 
 		ui.submitProgress(InstallProgress("Loading manifest file..."))
-		val gson = GsonBuilder().registerTypeAdapter(Hash::class.java, Hash.TypeHandler()).create()
+		val gson = GsonBuilder().registerTypeAdapter(Hash::class.java, Hash.TypeHandler()).setPrettyPrinting().create()
 		val manifest = try {
 			gson.fromJson(FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
 					ManifestFile::class.java)
@@ -163,7 +165,67 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		handleCancellation()
 
-		// TODO: update MMC params, java args etc
+
+
+		val multimcManifestPath = Paths.get(opts.packFolder, "mmc-pack.json").toString();
+		val multimcManifestFile = File(multimcManifestPath)
+
+		if (multimcManifestFile.exists()) {
+			ui.submitProgress(InstallProgress("Loading MultiMC pack file..."))
+
+			val multimcManifest = try {
+				JsonParser.parseReader(multimcManifestFile.reader())
+			} catch (e: JsonIOException) {
+				ui.showErrorAndExit("Cannot read the MultiMC pack file", e)
+			} catch (e: JsonSyntaxException) {
+				ui.showErrorAndExit("Invalid MultiMC pack file", e)
+			}.asJsonObject
+
+			if (multimcManifest["formatVersion"].asInt != 1) {
+				ui.showErrorAndExit("Invalid MultiMC format version")
+			}
+
+			var manifestModified = false
+			var forgeFound = false
+			val components = multimcManifest["components"].asJsonArray
+			for (componentObj in components) {
+				val component = componentObj.asJsonObject
+
+				val version = component["version"].asString
+				when (component["uid"].asString)
+				{
+					"net.minecraft" -> {
+						if (version != pf.versions?.get("minecraft")) {
+							manifestModified = true
+							component.addProperty("version", pf.versions?.get("minecraft"))
+						}
+					}
+					"net.minecraftforge" -> {
+						forgeFound = true
+						if (version != pf.versions?.get("forge")) {
+							manifestModified = true
+							component.addProperty("version", pf.versions?.get("forge"))
+						}
+					}
+				}
+			}
+
+			if (!forgeFound) {
+				components.add(gson.toJsonTree(hashMapOf("uid" to "net.minecraftforge", "version" to pf.versions?.get("forge"))))
+				manifestModified = true
+			}
+
+			if (manifestModified) {
+				multimcManifestFile.writeText(gson.toJson(multimcManifest))
+				// TODO: Test if restarting is really necessary?
+				//ui.showErrorAndExit("Minecraft or Forge versions were wrong. Please, re-launch the instance!")
+			}
+
+			if (ui.cancelButtonPressed) {
+				showCancellationDialog()
+				handleCancellation()
+			}
+		}
 
 		// If there were errors, don't write the manifest/index hashes, to ensure they are rechecked later
 		if (errorsOccurred) {
