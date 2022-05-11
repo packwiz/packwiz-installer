@@ -9,6 +9,7 @@ import link.infra.packwiz.installer.task.CacheKey
 import link.infra.packwiz.installer.task.Task
 import link.infra.packwiz.installer.task.TaskCombinedResult
 import link.infra.packwiz.installer.task.TaskContext
+import java.io.InputStreamReader
 
 class PackwizV1PackTomlTask(ctx: TaskContext, val path: PackwizPath): Task<PackwizV1PackFile>(ctx) {
 	// TODO: make hierarchically defined by caller? - then changing the pack format type doesn't leave junk in the cache
@@ -30,7 +31,7 @@ class PackwizV1PackTomlTask(ctx: TaskContext, val path: PackwizPath): Task<Packw
 
 	private val internalResult by lazy {
 		// TODO: query, parse JSON
-		val packFile = Toml().read(path.source(ctx.clients).inputStream()).to(PackFile::class.java)
+		val packFile = Toml().read(InputStreamReader(path.source(ctx.clients).inputStream(), "UTF-8")).to(PackFile::class.java)
 
 		val resolved = PackwizV1PackFile(packFile.name ?: throw RuntimeException("Name required"), // TODO: better exception handling
 			path.resolve(packFile.index?.file ?: throw RuntimeException("File required")),

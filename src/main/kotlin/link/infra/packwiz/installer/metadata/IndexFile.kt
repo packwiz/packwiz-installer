@@ -9,6 +9,7 @@ import link.infra.packwiz.installer.request.HandlerManager.getFileSource
 import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
 import okio.Source
 import okio.buffer
+import java.io.InputStreamReader
 import java.nio.file.Paths
 
 class IndexFile {
@@ -43,7 +44,7 @@ class IndexFile {
 			linkedFileURI = getNewLoc(indexUri, file)
 			val src = getFileSource(linkedFileURI!!)
 			val fileStream = getHasher(hashFormat!!).getHashingSource(src)
-			linkedFile = Toml().read(fileStream.buffer().inputStream()).to(ModFile::class.java)
+			linkedFile = Toml().read(InputStreamReader(fileStream.buffer().inputStream(), "UTF-8")).to(ModFile::class.java)
 			if (!fileStream.hashIsEqual(fileHash)) {
 				throw Exception("Invalid mod file hash")
 			}

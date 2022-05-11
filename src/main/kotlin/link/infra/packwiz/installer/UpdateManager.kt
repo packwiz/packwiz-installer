@@ -22,10 +22,7 @@ import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
 import link.infra.packwiz.installer.util.ifletOrErr
 import okio.buffer
-import java.io.FileNotFoundException
-import java.io.FileReader
-import java.io.FileWriter
-import java.io.IOException
+import java.io.*
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.CompletionService
@@ -88,7 +85,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 		val pf = packFileSource.buffer().use {
 			try {
-				Toml().read(it.inputStream()).to(PackFile::class.java)
+				Toml().read(InputStreamReader(it.inputStream(), "UTF-8")).to(PackFile::class.java)
 			} catch (e: IllegalStateException) {
 				ui.showErrorAndExit("Failed to parse pack.toml", e)
 			}
@@ -201,7 +198,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 
 		val indexFile = try {
-			Toml().read(indexFileSource.buffer().inputStream()).to(IndexFile::class.java)
+			Toml().read(InputStreamReader(indexFileSource.buffer().inputStream(), "UTF-8")).to(IndexFile::class.java)
 		} catch (e: IllegalStateException) {
 			ui.showErrorAndExit("Failed to parse index file", e)
 		}
