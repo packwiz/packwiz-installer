@@ -3,13 +3,20 @@
 packwiz-installer itself is under the MIT license ([Source](https://github.com/packwiz/packwiz-installer)), except for Murmur2Lib and bundled dependencies as follows:
 
 - Murmur2Lib: Apache 2.0 ([Source](https://github.com/prasanthj/hasher/blob/master/src/main/java/hasher/Murmur2.java))
+  - Copyright 2014 Prasanth Jayachandran
 - Google Gson 2.8.9: Apache 2.0 ([Source](https://github.com/google/gson))
+  - Copyright 2008 Google Inc.
 - Okio 3.0.0: Apache 2.0 ([Source](https://github.com/square/okio/))
+  - Copyright 2013 Square, Inc.
 - Commons CLI 1.5: Apache 2.0 ([Source](http://commons.apache.org/proper/commons-cli/))
 - Jetbrains Annotations 13.0: Apache 2.0 ([Source](https://github.com/JetBrains/java-annotations))
+  - Copyright 2000-2016 JetBrains s.r.o.
 - Kotlin Standard Library 1.6.10: Apache 2.0 ([Source](https://github.com/JetBrains/kotlin))
+  - Copyright 2010-2020 JetBrains s.r.o and respective authors and developers
 - toml4j 0.7.2: MIT ([Source](https://github.com/mwanji/toml4j))
-<!-- TODO: document kotlin-result -->
+  - Copyright (c) 2013-2015 Moandji Ezana
+- kotlin-result 1.1.14: ISC ([Source](https://github.com/michaelbull/kotlin-result))
+  - Copyright (c) 2017-2022 Michael Bull (https://www.michael-bull.com)
 
 ## Associated notices
 
@@ -23,10 +30,6 @@ The Apache Software Foundation (http://www.apache.org/).
 ## Full license texts
 
 ### MIT
-MIT License
-
-Copyright (c)
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -249,3 +252,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+### ISC
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
