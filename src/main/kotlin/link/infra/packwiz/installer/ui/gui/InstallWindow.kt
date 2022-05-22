@@ -12,6 +12,9 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 	private var lblProgresslabel: JLabel
 	private var progressBar: JProgressBar
 	private var btnOptions: JButton
+	private val btnCancel: JButton
+	private val btnOk: JButton
+	private val buttonsPanel: JPanel
 
 	init {
 		setBounds(100, 100, 493, 95)
@@ -35,7 +38,7 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 		}, BorderLayout.CENTER)
 
 		// Buttons
-		add(JPanel().apply {
+		buttonsPanel = JPanel().apply {
 			border = EmptyBorder(0, 5, 0, 5)
 			layout = GridBagLayout()
 
@@ -49,20 +52,28 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 				}
 			}
 			add(btnOptions, GridBagConstraints().apply {
-				gridx = 0
+				gridx = 1
 				gridy = 0
 			})
 
-			add(JButton("Cancel").apply {
+			btnCancel = JButton("Cancel").apply {
 				addActionListener {
 					isEnabled = false
 					handler.cancelButtonPressed = true
 				}
-			}, GridBagConstraints().apply {
-				gridx = 0
+			}
+			add(btnCancel, GridBagConstraints().apply {
+				gridx = 1
 				gridy = 1
 			})
-		}, BorderLayout.EAST)
+		}
+
+		btnOk = JButton("Continue").apply {
+			addActionListener {
+				handler.okButtonPressed = true
+			}
+		}
+		add(buttonsPanel, BorderLayout.EAST)
 	}
 
 	fun displayProgress(progress: InstallProgress) {
@@ -82,5 +93,32 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 			text = if (hasOptions) { "Optional mods..." } else { "No optional mods" }
  			isEnabled = false
 		}
+	}
+
+	fun showOk(hideCancel: Boolean) {
+		if (hideCancel) {
+			buttonsPanel.add(btnOk, GridBagConstraints().apply {
+				gridx = 1
+				gridy = 1
+			})
+			buttonsPanel.remove(btnCancel)
+		} else {
+			buttonsPanel.add(btnOk, GridBagConstraints().apply {
+				gridx = 0
+				gridy = 1
+			})
+		}
+		buttonsPanel.revalidate()
+	}
+
+	fun hideOk() {
+		buttonsPanel.remove(btnOk)
+		if (!buttonsPanel.components.contains(btnCancel)) {
+			buttonsPanel.add(btnCancel, GridBagConstraints().apply {
+				gridx = 1
+				gridy = 1
+			})
+		}
+		buttonsPanel.revalidate()
 	}
 }

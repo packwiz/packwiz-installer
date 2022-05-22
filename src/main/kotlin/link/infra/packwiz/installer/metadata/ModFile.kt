@@ -1,6 +1,9 @@
 package link.infra.packwiz.installer.metadata
 
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
+import link.infra.packwiz.installer.metadata.curseforge.UpdateData
+import link.infra.packwiz.installer.metadata.curseforge.UpdateDeserializer
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.request.HandlerManager.getFileSource
@@ -19,10 +22,15 @@ class ModFile {
 		@SerializedName("hash-format")
 		var hashFormat: String? = null
 		var hash: String? = null
+		var mode: String? = null
 	}
 
-	var update: Map<String, Any>? = null
+	@JsonAdapter(UpdateDeserializer::class)
+	var update: Map<String, UpdateData>? = null
 	var option: Option? = null
+
+	@Transient
+	val resolvedUpdateData = mutableMapOf<String, SpaceSafeURI>()
 
 	class Option {
 		var optional = false
@@ -34,11 +42,20 @@ class ModFile {
 	@Throws(Exception::class)
 	fun getSource(baseLoc: SpaceSafeURI?): Source {
 		download?.let {
-			if (it.url == null) {
-				throw Exception("Metadata file doesn't have a download URI")
+			if (it.mode == null || it.mode == "" || it.mode == "url") {
+				if (it.url == null) {
+					throw Exception("Metadata file doesn't have a download URI")
+				}
+				val newLoc = getNewLoc(baseLoc, it.url) ?: throw Exception("Metadata file URI is invalid")
+				return getFileSource(newLoc)
+			} else if (it.mode == "metadata:curseforge") {
+				if (!resolvedUpdateData.contains("curseforge")) {
+					throw Exception("Metadata file specifies CurseForge mode, but is missing metadata")
+				}
+				return getFileSource(resolvedUpdateData["curseforge"]!!)
+			} else {
+				throw Exception("Unsupported download mode " + it.mode)
 			}
-			val newLoc = getNewLoc(baseLoc, it.url) ?: throw Exception("Metadata file URI is invalid")
-			return getFileSource(newLoc)
 		} ?: throw Exception("Metadata file doesn't have download")
 	}
 

@@ -9,6 +9,7 @@ import link.infra.packwiz.installer.metadata.IndexFile
 import link.infra.packwiz.installer.metadata.ManifestFile
 import link.infra.packwiz.installer.metadata.PackFile
 import link.infra.packwiz.installer.metadata.SpaceSafeURI
+import link.infra.packwiz.installer.metadata.curseforge.resolveCfMetadata
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
@@ -125,8 +126,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 
 		if (manifest.packFileHash?.let { packFileSource.hashIsEqual(it) } == true && invalidatedUris.isEmpty()) {
-			Log.info("Modpack is already up to date!")
 			// todo: --force?
+			ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
+			ui.awaitOptionalButton(false)
 			if (!ui.optionsButtonPressed) {
 				return
 			}
@@ -183,8 +185,13 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
 		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
-			Log.info("Modpack files are already up to date!")
+			ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
+			ui.awaitOptionalButton(false)
 			if (!ui.optionsButtonPressed) {
+				return
+			}
+			if (ui.cancelButtonPressed) {
+				showCancellationDialog()
 				return
 			}
 		}
@@ -305,8 +312,20 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		// TODO: task failed function?
 		val nonFailedFirstTasks = tasks.filter { t -> !t.failed() }.toList()
 		val optionTasks = nonFailedFirstTasks.filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).toList()
+		val optionsChanged = optionTasks.any(DownloadTask::isNewOptional)
+		if (optionTasks.isNotEmpty() && !optionsChanged) {
+			if (!ui.optionsButtonPressed) {
+				// TODO: this is so ugly
+				ui.submitProgress(InstallProgress("Reconfigure optional mods?", 0,1))
+				ui.awaitOptionalButton(true)
+				if (ui.cancelButtonPressed) {
+					showCancellationDialog()
+					return
+				}
+			}
+		}
 		// If options changed, present all options again
-		if (ui.optionsButtonPressed || optionTasks.any(DownloadTask::isNewOptional)) {
+		if (ui.optionsButtonPressed || optionsChanged) {
 			// new ArrayList is required so it's an IOptionDetails rather than a DownloadTask list
 			if (ui.showOptions(ArrayList(optionTasks))) {
 				cancelled = true
@@ -315,6 +334,38 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 		// TODO: keep this enabled? then apply changes after download process?
 		ui.disableOptionsButton(optionTasks.isNotEmpty())
+
+		ui.submitProgress(InstallProgress("Validating existing files..."))
+
+		// Validate existing files
+		for (downloadTask in nonFailedFirstTasks.filter(DownloadTask::correctSide)) {
+			downloadTask.validateExistingFile(opts.packFolder)
+		}
+
+		// Resolve CurseForge metadata
+		val cfFiles = nonFailedFirstTasks.asSequence().filter { !it.alreadyUpToDate }
+			.filter(DownloadTask::correctSide)
+			.map { it.metadata }
+			.filter { it.linkedFile != null }
+			.filter { it.linkedFile?.download?.mode == "metadata:curseforge" }.toList()
+		if (cfFiles.isNotEmpty()) {
+			ui.submitProgress(InstallProgress("Resolving CurseForge metadata..."))
+			val resolveFailures = resolveCfMetadata(cfFiles)
+			if (resolveFailures.isNotEmpty()) {
+				errorsOccurred = true
+				when (ui.showExceptions(resolveFailures, cfFiles.size, true)) {
+					ExceptionListResult.CONTINUE -> {}
+					ExceptionListResult.CANCEL -> {
+						cancelled = true
+						return
+					}
+					ExceptionListResult.IGNORE -> {
+						cancelledStartGame = true
+						return
+					}
+				}
+			}
+		}
 
 		// TODO: different thread pool type?
 		val threadPool = Executors.newFixedThreadPool(10)

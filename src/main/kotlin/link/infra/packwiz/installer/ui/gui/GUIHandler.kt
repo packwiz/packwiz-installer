@@ -8,6 +8,7 @@ import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
 import java.awt.EventQueue
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 import javax.swing.UIManager
@@ -18,8 +19,21 @@ class GUIHandler : IUserInterface {
 
 	@Volatile
 	override var optionsButtonPressed = false
+		set(value) {
+			optionalSelectedLatch.countDown()
+			field = value
+		}
 	@Volatile
 	override var cancelButtonPressed = false
+		set(value) {
+			optionalSelectedLatch.countDown()
+			field = value
+		}
+	var okButtonPressed = false
+		set(value) {
+			optionalSelectedLatch.countDown()
+			field = value
+		}
 	@Volatile
 	override var firstInstall = false
 
@@ -42,8 +56,12 @@ class GUIHandler : IUserInterface {
 		}
 	}
 
+	private val visibleCountdownLatch = CountDownLatch(1)
+	private val optionalSelectedLatch = CountDownLatch(1)
+
 	override fun show() = EventQueue.invokeLater {
 		frmPackwizlauncher.isVisible = true
+		visibleCountdownLatch.countDown()
 	}
 
 	override fun dispose() = EventQueue.invokeAndWait {
@@ -146,5 +164,16 @@ class GUIHandler : IUserInterface {
 			future.complete(if (result == 0) IUserInterface.CancellationResult.QUIT else IUserInterface.CancellationResult.CONTINUE)
 		}
 		return future.get()
+	}
+
+	override fun awaitOptionalButton(showCancel: Boolean) {
+		EventQueue.invokeAndWait {
+			frmPackwizlauncher.showOk(!showCancel)
+		}
+		visibleCountdownLatch.await()
+		optionalSelectedLatch.await()
+		EventQueue.invokeLater {
+			frmPackwizlauncher.hideOk()
+		}
 	}
 }

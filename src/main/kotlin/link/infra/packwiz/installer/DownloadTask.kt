@@ -10,14 +10,14 @@ import link.infra.packwiz.installer.target.Side
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.util.Log
-import okio.Buffer
-import okio.HashingSink
-import okio.buffer
+import okio.*
+import okio.Path.Companion.toOkioPath
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
+import kotlin.io.use
 
 internal class DownloadTask private constructor(val metadata: IndexFile.File, defaultFormat: String, private val downloadSide: Side) : IOptionDetails {
 	var cachedFile: ManifestFile.File? = null
@@ -27,7 +27,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 	fun failed() = err != null
 
-	private var alreadyUpToDate = false
+	var alreadyUpToDate = false
 	private var metadataRequired = true
 	private var invalidated = false
 	// If file is new or isOptional changed to true, the option needs to be presented again
@@ -124,11 +124,63 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 	}
 
+	/**
+	 * Check if the file in the destination location is already valid
+	 * Must be done after metadata retrieval
+	 */
+	fun validateExistingFile(packFolder: String) {
+		if (!alreadyUpToDate) {
+			try {
+				// TODO: only do this for files that didn't exist before or have been modified since last full update?
+				val destPath = Paths.get(packFolder, metadata.destURI.toString())
+				FileSystem.SYSTEM.source(destPath.toOkioPath()).buffer().use { src ->
+					val hash: Hash
+					val fileHashFormat: String
+					val linkedFile = metadata.linkedFile
+
+					if (linkedFile != null) {
+						hash = linkedFile.hash
+						fileHashFormat = linkedFile.download!!.hashFormat!!
+					} else {
+						hash = metadata.getHashObj()
+						fileHashFormat = metadata.hashFormat!!
+					}
+
+					val fileSource = getHasher(fileHashFormat).getHashingSource(src)
+					fileSource.buffer().readAll(blackholeSink())
+					if (fileSource.hashIsEqual(hash)) {
+						alreadyUpToDate = true
+
+						// Update the manifest file
+						cachedFile = (cachedFile ?: ManifestFile.File()).also {
+							try {
+								it.hash = metadata.getHashObj()
+							} catch (e: Exception) {
+								err = e
+								return
+							}
+							it.isOptional = isOptional
+							it.cachedLocation = metadata.destURI.toString()
+							metadata.linkedFile?.let { linked ->
+								try {
+									it.linkedFileHash = linked.hash
+								} catch (e: Exception) {
+									err = e
+								}
+							}
+						}
+					}
+				}
+			} catch (e: IOException) {
+				// Ignore exceptions; if the file doesn't exist we'll be downloading it
+			}
+		}
+	}
+
 	fun download(packFolder: String, indexUri: SpaceSafeURI) {
 		if (err != null) return
 
-		// TODO: is this necessary if we overwrite?
-		// Ensure it is removed
+		// Ensure wrong-side or optional false files are removed
 		cachedFile?.let {
 			if (!it.optionValue || !correctSide()) {
 				if (it.cachedLocation == null) return
@@ -143,8 +195,6 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 		if (alreadyUpToDate) return
 
-		// TODO: should I be validating JSON properly, or this fine!!!!!!!??
-		assert(metadata.destURI != null)
 		val destPath = Paths.get(packFolder, metadata.destURI.toString())
 
 		// Don't update files marked with preserve if they already exist on disk
@@ -164,10 +214,10 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 			if (linkedFile != null) {
 				hash = linkedFile.hash
-				fileHashFormat = Objects.requireNonNull(Objects.requireNonNull(linkedFile.download)!!.hashFormat)!!
+				fileHashFormat = linkedFile.download!!.hashFormat!!
 			} else {
 				hash = metadata.getHashObj()
-				fileHashFormat = Objects.requireNonNull(metadata.hashFormat)!!
+				fileHashFormat = metadata.hashFormat!!
 			}
 
 			val src = metadata.getSource(indexUri)
@@ -197,7 +247,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				println("Calculated: " + fileSource.hash)
 				println("Expected:   $hash")
 				// Attempt to get the SHA256 hash
-				val sha256 = HashingSink.sha256(okio.blackholeSink())
+				val sha256 = HashingSink.sha256(blackholeSink())
 				data.readAll(sha256)
 				println("SHA256 hash value: " + sha256.hash)
 				err = Exception("Hash invalid!")
