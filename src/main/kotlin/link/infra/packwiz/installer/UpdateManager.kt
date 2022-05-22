@@ -128,7 +128,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		if (manifest.packFileHash?.let { packFileSource.hashIsEqual(it) } == true && invalidatedUris.isEmpty()) {
 			// todo: --force?
 			ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
-			ui.awaitOptionalButton(false)
+			if (manifest.cachedFiles.any { it.value.isOptional }) {
+				ui.awaitOptionalButton(false)
+			}
 			if (!ui.optionsButtonPressed) {
 				return
 			}
@@ -186,7 +188,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
 		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
 			ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
-			ui.awaitOptionalButton(false)
+			if (manifest.cachedFiles.any { it.value.isOptional }) {
+				ui.awaitOptionalButton(false)
+			}
 			if (!ui.optionsButtonPressed) {
 				return
 			}
