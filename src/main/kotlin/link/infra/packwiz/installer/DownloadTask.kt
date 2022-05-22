@@ -182,13 +182,13 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 		// Ensure wrong-side or optional false files are removed
 		cachedFile?.let {
-			if (!it.optionValue || !correctSide()) {
-				if (it.cachedLocation == null) return
-
-				try {
-					Files.deleteIfExists(Paths.get(packFolder, it.cachedLocation))
-				} catch (e: IOException) {
-					Log.warn("Failed to delete file before downloading", e)
+			if ((it.isOptional && !it.optionValue) || !correctSide()) {
+				if (it.cachedLocation != null) {
+					try {
+						Files.deleteIfExists(Paths.get(packFolder, it.cachedLocation))
+					} catch (e: IOException) {
+						Log.warn("Failed to delete file before downloading", e)
+					}
 				}
 				it.cachedLocation = null
 			}
