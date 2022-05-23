@@ -314,8 +314,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 
 		// TODO: task failed function?
-		val nonFailedFirstTasks = tasks.filter { t -> !t.failed() }.toList()
-		val optionTasks = nonFailedFirstTasks.filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).toList()
+		tasks.removeAll { it.failed() }
+		val optionTasks = tasks.filter(DownloadTask::correctSide).filter(DownloadTask::isOptional).toList()
 		val optionsChanged = optionTasks.any(DownloadTask::isNewOptional)
 		if (optionTasks.isNotEmpty() && !optionsChanged) {
 			if (!ui.optionsButtonPressed) {
@@ -339,35 +339,11 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		// TODO: keep this enabled? then apply changes after download process?
 		ui.disableOptionsButton(optionTasks.isNotEmpty())
 
-		ui.submitProgress(InstallProgress("Validating existing files..."))
-
-		// Validate existing files
-		for (downloadTask in nonFailedFirstTasks.filter(DownloadTask::correctSide)) {
-			downloadTask.validateExistingFile(opts.packFolder)
-		}
-
-		// Resolve CurseForge metadata
-		val cfFiles = nonFailedFirstTasks.asSequence().filter { !it.alreadyUpToDate }
-			.filter(DownloadTask::correctSide)
-			.map { it.metadata }
-			.filter { it.linkedFile != null }
-			.filter { it.linkedFile?.download?.mode == "metadata:curseforge" }.toList()
-		if (cfFiles.isNotEmpty()) {
-			ui.submitProgress(InstallProgress("Resolving CurseForge metadata..."))
-			val resolveFailures = resolveCfMetadata(cfFiles)
-			if (resolveFailures.isNotEmpty()) {
-				errorsOccurred = true
-				when (ui.showExceptions(resolveFailures, cfFiles.size, true)) {
-					ExceptionListResult.CONTINUE -> {}
-					ExceptionListResult.CANCEL -> {
-						cancelled = true
-						return
-					}
-					ExceptionListResult.IGNORE -> {
-						cancelledStartGame = true
-						return
-					}
-				}
+		while (true) {
+			when (validateAndResolve(tasks)) {
+				ResolveResult.RETRY -> {}
+				ResolveResult.QUIT -> return
+				ResolveResult.SUCCESS -> break
 			}
 		}
 
@@ -418,7 +394,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		// Shut down the thread pool when the update is done
 		threadPool.shutdown()
 
-		val failedTasks2ElectricBoogaloo = nonFailedFirstTasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
+		val failedTasks2ElectricBoogaloo = tasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
 		if (failedTasks2ElectricBoogaloo.isNotEmpty()) {
 			errorsOccurred = true
 			when (ui.showExceptions(failedTasks2ElectricBoogaloo, tasks.size, false)) {
@@ -427,6 +403,49 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				ExceptionListResult.IGNORE -> cancelledStartGame = true
 			}
 		}
+	}
+
+	enum class ResolveResult {
+		RETRY,
+		QUIT,
+		SUCCESS;
+	}
+
+	private fun validateAndResolve(nonFailedFirstTasks: List<DownloadTask>): ResolveResult {
+		ui.submitProgress(InstallProgress("Validating existing files..."))
+
+		// Validate existing files
+		for (downloadTask in nonFailedFirstTasks.filter(DownloadTask::correctSide)) {
+			downloadTask.validateExistingFile(opts.packFolder)
+		}
+
+		// Resolve CurseForge metadata
+		val cfFiles = nonFailedFirstTasks.asSequence().filter { !it.alreadyUpToDate }
+			.filter(DownloadTask::correctSide)
+			.map { it.metadata }
+			.filter { it.linkedFile != null }
+			.filter { it.linkedFile?.download?.mode == "metadata:curseforge" }.toList()
+		if (cfFiles.isNotEmpty()) {
+			ui.submitProgress(InstallProgress("Resolving CurseForge metadata..."))
+			val resolveFailures = resolveCfMetadata(cfFiles)
+			if (resolveFailures.isNotEmpty()) {
+				errorsOccurred = true
+				return when (ui.showExceptions(resolveFailures, cfFiles.size, true)) {
+					ExceptionListResult.CONTINUE -> {
+						ResolveResult.RETRY
+					}
+					ExceptionListResult.CANCEL -> {
+						cancelled = true
+						ResolveResult.QUIT
+					}
+					ExceptionListResult.IGNORE -> {
+						cancelledStartGame = true
+						ResolveResult.QUIT
+					}
+				}
+			}
+		}
+		return ResolveResult.SUCCESS
 	}
 
 	private fun showCancellationDialog() {

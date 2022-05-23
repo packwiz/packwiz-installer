@@ -292,7 +292,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 	companion object {
 		@JvmStatic
-		fun createTasksFromIndex(index: IndexFile, defaultFormat: String, downloadSide: Side): List<DownloadTask> {
+		fun createTasksFromIndex(index: IndexFile, defaultFormat: String, downloadSide: Side): MutableList<DownloadTask> {
 			val tasks = ArrayList<DownloadTask>()
 			for (file in Objects.requireNonNull(index.files)) {
 				tasks.add(DownloadTask(file, defaultFormat, downloadSide))
