@@ -180,17 +180,19 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 	fun download(packFolder: String, indexUri: SpaceSafeURI) {
 		if (err != null) return
 
-		// Ensure wrong-side or optional false files are removed
+		// Exclude wrong-side and optional false files
 		cachedFile?.let {
 			if ((it.isOptional && !it.optionValue) || !correctSide()) {
 				if (it.cachedLocation != null) {
+					// Ensure wrong-side or optional false files are removed
 					try {
 						Files.deleteIfExists(Paths.get(packFolder, it.cachedLocation))
 					} catch (e: IOException) {
-						Log.warn("Failed to delete file before downloading", e)
+						Log.warn("Failed to delete file", e)
 					}
 				}
 				it.cachedLocation = null
+				return
 			}
 		}
 		if (alreadyUpToDate) return
