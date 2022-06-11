@@ -99,6 +99,68 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 
+		val multimcManifestPath = Paths.get(opts.multimcFolder, "mmc-pack.json").toString();
+		val multimcManifestFile = File(multimcManifestPath)
+
+		if (multimcManifestFile.exists()) {
+			ui.submitProgress(InstallProgress("Loading MultiMC pack file..."))
+
+			val multimcManifest = try {
+				JsonParser.parseReader(multimcManifestFile.reader())
+			} catch (e: JsonIOException) {
+				ui.showErrorAndExit("Cannot read the MultiMC pack file", e)
+			} catch (e: JsonSyntaxException) {
+				ui.showErrorAndExit("Invalid MultiMC pack file", e)
+			}.asJsonObject
+
+			Log.info("Loaded MultiMC config")
+
+			if (multimcManifest["formatVersion"].asInt != 1) {
+				ui.showErrorAndExit("Invalid MultiMC format version")
+			}
+
+			var manifestModified = false
+			var forgeFound = false
+			val components = multimcManifest["components"].asJsonArray
+			for (componentObj in components) {
+				val component = componentObj.asJsonObject
+
+				val version = component["version"].asString
+				when (component["uid"].asString) {
+					"net.minecraft" -> {
+						if (version != pf.versions?.get("minecraft")) {
+							manifestModified = true
+							component.addProperty("version", pf.versions?.get("minecraft"))
+						}
+					}
+					"net.minecraftforge" -> {
+						forgeFound = true
+						if (version != pf.versions?.get("forge")) {
+							manifestModified = true
+							component.addProperty("version", pf.versions?.get("forge"))
+						}
+					}
+				}
+			}
+
+			if (!forgeFound) {
+				components.add(gson.toJsonTree(hashMapOf("uid" to "net.minecraftforge", "version" to pf.versions?.get("forge"))))
+				manifestModified = true
+			}
+
+			if (manifestModified) {
+				multimcManifestFile.writeText(gson.toJson(multimcManifest))
+				Log.info("Updated modpack Minecraft and/or Forge version")
+			}
+
+			if (ui.cancelButtonPressed) {
+				showCancellationDialog()
+				handleCancellation()
+			}
+		} else {
+			Log.warn("MultiMC installation not detected... Tried looking for it in $multimcManifestPath")
+		}
+
 		ui.submitProgress(InstallProgress("Checking local files..."))
 
 		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
@@ -165,67 +227,6 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		handleCancellation()
 
-
-
-		val multimcManifestPath = Paths.get(opts.packFolder, "mmc-pack.json").toString();
-		val multimcManifestFile = File(multimcManifestPath)
-
-		if (multimcManifestFile.exists()) {
-			ui.submitProgress(InstallProgress("Loading MultiMC pack file..."))
-
-			val multimcManifest = try {
-				JsonParser.parseReader(multimcManifestFile.reader())
-			} catch (e: JsonIOException) {
-				ui.showErrorAndExit("Cannot read the MultiMC pack file", e)
-			} catch (e: JsonSyntaxException) {
-				ui.showErrorAndExit("Invalid MultiMC pack file", e)
-			}.asJsonObject
-
-			if (multimcManifest["formatVersion"].asInt != 1) {
-				ui.showErrorAndExit("Invalid MultiMC format version")
-			}
-
-			var manifestModified = false
-			var forgeFound = false
-			val components = multimcManifest["components"].asJsonArray
-			for (componentObj in components) {
-				val component = componentObj.asJsonObject
-
-				val version = component["version"].asString
-				when (component["uid"].asString)
-				{
-					"net.minecraft" -> {
-						if (version != pf.versions?.get("minecraft")) {
-							manifestModified = true
-							component.addProperty("version", pf.versions?.get("minecraft"))
-						}
-					}
-					"net.minecraftforge" -> {
-						forgeFound = true
-						if (version != pf.versions?.get("forge")) {
-							manifestModified = true
-							component.addProperty("version", pf.versions?.get("forge"))
-						}
-					}
-				}
-			}
-
-			if (!forgeFound) {
-				components.add(gson.toJsonTree(hashMapOf("uid" to "net.minecraftforge", "version" to pf.versions?.get("forge"))))
-				manifestModified = true
-			}
-
-			if (manifestModified) {
-				multimcManifestFile.writeText(gson.toJson(multimcManifest))
-				// TODO: Test if restarting is really necessary?
-				//ui.showErrorAndExit("Minecraft or Forge versions were wrong. Please, re-launch the instance!")
-			}
-
-			if (ui.cancelButtonPressed) {
-				showCancellationDialog()
-				handleCancellation()
-			}
-		}
 
 		// If there were errors, don't write the manifest/index hashes, to ensure they are rechecked later
 		if (errorsOccurred) {
