@@ -173,37 +173,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			if (manifestModified) {
 				// The manifest has been modified, so before saving it we'll ask the user
 				// if they wanna update it, continue without updating it, or exit
-				val shouldUpdate = ui.showCustomDialog(
-						"<html>" +
-								"The modpacks version has been updated.<br>" +
-						"Current versions:" +
-							"<ul>" +
-							"<li>Minecraft: " +
-								"<font color=${if (mcOldVer != pf.versions?.getValue("minecraft")) "#ff0000" else "#000000"}>" +
-								"$mcOldVer</font></li>" +
-							"<li>${modLoader?.replaceFirstChar { it.uppercase() }}: " +
-								"<font color=${if (modLoaderOldVer != pf.versions?.getValue(modLoader ?: "forge")) "#ff0000" else "#000000"}>" +
-								"${modLoaderOldVer ?: "Not found"}</font></li>" +
-							"</ul>" +
-						"New versions:" +
-							"<ul>" +
-							"<li>Minecraft: " +
-								"<font color=${if (mcOldVer != pf.versions?.getValue("minecraft")) "#00ff00" else "#000000"}>" +
-								"${pf.versions?.getValue("minecraft")}</font></li>" +
-							"<li>${modLoader?.replaceFirstChar { it.uppercase() }}: " +
-								"<font color=${if (modLoaderOldVer != pf.versions?.getValue(modLoader ?: "forge")) "#00ff00" else "#000000"}>" +
-								"${pf.versions?.getValue(modLoader ?: "forge")}</font></li>" + // Adding a default on getValue because if not compiler gets mad
-							"</ul><br>" +
-						"Would you like to update the versions, launch without updating, or cancel the launch?",
-						"MultiMC versions updated",
-						arrayOf("Cancel", "Continue anyways", "Update")
-				)
+				val oldVers = listOf(Pair("minecraft", mcOldVer), Pair(modLoader!!, modLoaderOldVer))
+				val newVers = listOf(Pair("minecraft", pf.versions?.getValue("minecraft")), Pair(modLoader!!, pf.versions?.getValue(modLoader!!)))
 
-				when (shouldUpdate) {
-					null, "Cancel" -> {
+				when (ui.showUpdateConfirmationDialog(oldVers, newVers)) {
+					IUserInterface.UpdateConfirmationResult.CANCELLED -> {
 						cancelled = true
 					}
-					"Continue anyways" -> {
+					IUserInterface.UpdateConfirmationResult.CONTINUE -> {
 						cancelledStartGame = true
 					}
 				}

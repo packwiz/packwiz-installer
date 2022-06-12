@@ -23,7 +23,7 @@ interface IUserInterface {
 
 	fun showCancellationDialog(): CancellationResult = CancellationResult.QUIT
 
-	fun showCustomDialog(message: String, title: String, options: Array<String>): String? = null
+	fun showUpdateConfirmationDialog(oldVersions: List<Pair<String, String?>>, newVersions: List<Pair<String, String?>>): UpdateConfirmationResult = UpdateConfirmationResult.CANCELLED
 
 	fun awaitOptionalButton(showCancel: Boolean)
 
@@ -33,6 +33,10 @@ interface IUserInterface {
 
 	enum class CancellationResult {
 		QUIT, CONTINUE
+	}
+
+	enum class UpdateConfirmationResult {
+		CANCELLED, CONTINUE, UPDATE
 	}
 
 	var optionsButtonPressed: Boolean
