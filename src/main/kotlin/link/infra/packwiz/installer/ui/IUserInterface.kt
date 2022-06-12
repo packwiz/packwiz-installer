@@ -23,6 +23,8 @@ interface IUserInterface {
 
 	fun showCancellationDialog(): CancellationResult = CancellationResult.QUIT
 
+	fun showCustomDialog(message: String, title: String, options: Array<String>): String? = null
+
 	fun awaitOptionalButton(showCancel: Boolean)
 
 	enum class ExceptionListResult {

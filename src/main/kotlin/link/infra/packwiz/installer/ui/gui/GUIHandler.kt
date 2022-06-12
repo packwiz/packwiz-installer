@@ -166,6 +166,19 @@ class GUIHandler : IUserInterface {
 		return future.get()
 	}
 
+	override fun showCustomDialog(message: String, title: String, options: Array<String>): String? {
+		assert(options.isNotEmpty())
+		val future = CompletableFuture<String?>()
+		EventQueue.invokeLater {
+			val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
+					message,
+					title,
+					JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0])
+			future.complete(if (result == JOptionPane.CLOSED_OPTION) null else options[result])
+		}
+		return future.get()
+	}
+
 	override fun awaitOptionalButton(showCancel: Boolean) {
 		EventQueue.invokeAndWait {
 			frmPackwizlauncher.showOk(!showCancel)

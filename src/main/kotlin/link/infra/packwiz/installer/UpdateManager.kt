@@ -99,6 +99,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 
+		// MultiMC MC and loader version checker
 		val multimcManifestPath = Paths.get(opts.multimcFolder, "mmc-pack.json").toString();
 		val multimcManifestFile = File(multimcManifestPath)
 
@@ -115,12 +116,19 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 			Log.info("Loaded MultiMC config")
 
+			// We only support format 1, if it gets updated in the future we'll have to handle that
+			// There's only version 1 for now tho, so that's good
 			if (multimcManifest["formatVersion"].asInt != 1) {
 				ui.showErrorAndExit("Invalid MultiMC format version")
 			}
 
 			var manifestModified = false
-			var forgeFound = false
+			val modLoaders = hashMapOf("net.minecraftforge" to "forge", "net.fabricmc.fabric-loader" to "fabric")
+			val modLoadersClasses = modLoaders.entries.associate{(k,v)-> v to k}
+			var modLoaderFound = false
+			var modLoader: String? = null
+			var modLoaderOldVer: String? = null
+			var mcOldVer = "Unknown"
 			val components = multimcManifest["components"].asJsonArray
 			for (componentObj in components) {
 				val component = componentObj.asJsonObject
@@ -128,29 +136,81 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				val version = component["version"].asString
 				when (component["uid"].asString) {
 					"net.minecraft" -> {
+						mcOldVer = version
 						if (version != pf.versions?.get("minecraft")) {
 							manifestModified = true
 							component.addProperty("version", pf.versions?.get("minecraft"))
 						}
 					}
-					"net.minecraftforge" -> {
-						forgeFound = true
-						if (version != pf.versions?.get("forge")) {
-							manifestModified = true
-							component.addProperty("version", pf.versions?.get("forge"))
-						}
+				}
+				// If we find any of the modloaders we support, we save it and check the version
+				if (modLoaders.containsKey(component["uid"].asString)) {
+					modLoaderFound = true
+					modLoader = modLoaders.getValue(component["uid"].asString)
+					modLoaderOldVer = version
+					if (version != pf.versions?.get(modLoader)) {
+						manifestModified = true
+						component.addProperty("version", pf.versions?.get(modLoader))
 					}
 				}
 			}
 
-			if (!forgeFound) {
-				components.add(gson.toJsonTree(hashMapOf("uid" to "net.minecraftforge", "version" to pf.versions?.get("forge"))))
+			// If we can't find the mod loader in the MultiMC file, we add it
+			if (!modLoaderFound) {
+				for ((loaderClass, loader) in modLoaders) {
+					if (pf.versions?.containsKey(loader) ?: false) {
+						modLoader = loader
+						break
+					}
+				}
+				// If we can't find it in the modpack pack file, something is wrong, we'll stop here
+				if (modLoader == null) ui.showErrorAndExit("Mod Loader not found in modpack pack file")
+
+				components.add(gson.toJsonTree(hashMapOf("uid" to modLoadersClasses.get(modLoader), "version" to pf.versions?.get(modLoader))))
 				manifestModified = true
 			}
 
 			if (manifestModified) {
+				// The manifest has been modified, so before saving it we'll ask the user
+				// if they wanna update it, continue without updating it, or exit
+				val shouldUpdate = ui.showCustomDialog(
+						"<html>" +
+								"The modpacks version has been updated.<br>" +
+						"Current versions:" +
+							"<ul>" +
+							"<li>Minecraft: " +
+								"<font color=${if (mcOldVer != pf.versions?.getValue("minecraft")) "#ff0000" else "#000000"}>" +
+								"$mcOldVer</font></li>" +
+							"<li>${modLoader?.replaceFirstChar { it.uppercase() }}: " +
+								"<font color=${if (modLoaderOldVer != pf.versions?.getValue(modLoader ?: "forge")) "#ff0000" else "#000000"}>" +
+								"${modLoaderOldVer ?: "Not found"}</font></li>" +
+							"</ul>" +
+						"New versions:" +
+							"<ul>" +
+							"<li>Minecraft: " +
+								"<font color=${if (mcOldVer != pf.versions?.getValue("minecraft")) "#00ff00" else "#000000"}>" +
+								"${pf.versions?.getValue("minecraft")}</font></li>" +
+							"<li>${modLoader?.replaceFirstChar { it.uppercase() }}: " +
+								"<font color=${if (modLoaderOldVer != pf.versions?.getValue(modLoader ?: "forge")) "#00ff00" else "#000000"}>" +
+								"${pf.versions?.getValue(modLoader ?: "forge")}</font></li>" + // Adding a default on getValue because if not compiler gets mad
+							"</ul><br>" +
+						"Would you like to update the versions, launch without updating, or cancel the launch?",
+						"MultiMC versions updated",
+						arrayOf("Cancel", "Continue anyways", "Update")
+				)
+
+				when (shouldUpdate) {
+					null, "Cancel" -> {
+						cancelled = true
+					}
+					"Continue anyways" -> {
+						cancelledStartGame = true
+					}
+				}
+				handleCancellation()
+
 				multimcManifestFile.writeText(gson.toJson(multimcManifest))
-				Log.info("Updated modpack Minecraft and/or Forge version")
+				Log.info("Updated modpack Minecraft and/or ${modLoader?.replaceFirstChar { it.uppercase() }} version")
 			}
 
 			if (ui.cancelButtonPressed) {
