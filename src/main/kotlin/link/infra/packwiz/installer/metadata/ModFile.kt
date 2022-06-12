@@ -9,6 +9,7 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.request.HandlerManager.getFileSource
 import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
 import link.infra.packwiz.installer.target.Side
+import okhttp3.HttpUrl
 import okio.Source
 
 class ModFile {
@@ -18,7 +19,7 @@ class ModFile {
 	var download: Download? = null
 
 	class Download {
-		var url: SpaceSafeURI? = null
+		var url: String? = null
 		@SerializedName("hash-format")
 		var hashFormat: String? = null
 		var hash: String? = null
@@ -30,7 +31,7 @@ class ModFile {
 	var option: Option? = null
 
 	@Transient
-	val resolvedUpdateData = mutableMapOf<String, SpaceSafeURI>()
+	val resolvedUpdateData = mutableMapOf<String, HttpUrl>()
 
 	class Option {
 		var optional = false
@@ -40,7 +41,7 @@ class ModFile {
 	}
 
 	@Throws(Exception::class)
-	fun getSource(baseLoc: SpaceSafeURI?): Source {
+	fun getSource(baseLoc: HttpUrl?): Source {
 		download?.let {
 			if (it.mode == null || it.mode == "" || it.mode == "url") {
 				if (it.url == null) {

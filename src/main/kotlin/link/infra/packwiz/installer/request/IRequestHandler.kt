@@ -1,15 +1,15 @@
 package link.infra.packwiz.installer.request
 
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
+import okhttp3.HttpUrl
 import okio.Source
 
 /**
  * IRequestHandler handles requests for locations specified in modpack metadata.
  */
 interface IRequestHandler {
-	fun matchesHandler(loc: SpaceSafeURI): Boolean
+	fun matchesHandler(loc: HttpUrl): Boolean
 
-	fun getNewLoc(loc: SpaceSafeURI): SpaceSafeURI {
+	fun getNewLoc(loc: HttpUrl): HttpUrl {
 		return loc
 	}
 
@@ -20,5 +20,5 @@ interface IRequestHandler {
 	 * @return The Source containing the data of the file
 	 * @throws Exception Exception if it failed to download a file!!!
 	 */
-	fun getFileSource(loc: SpaceSafeURI): Source?
+	fun getFileSource(loc: HttpUrl): Source?
 }

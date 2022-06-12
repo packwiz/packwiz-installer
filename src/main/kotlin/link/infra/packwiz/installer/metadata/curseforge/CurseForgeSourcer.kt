@@ -4,9 +4,9 @@ import com.google.gson.Gson
 import com.google.gson.JsonIOException
 import com.google.gson.JsonSyntaxException
 import link.infra.packwiz.installer.metadata.IndexFile
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.target.ClientHolder
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
+import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -21,7 +21,7 @@ private class GetFilesResponse {
 	class CfFile {
 		var id = 0
 		var modId = 0
-		var downloadUrl: SpaceSafeURI? = null
+		var downloadUrl: HttpUrl? = null
 	}
 	val data = mutableListOf<CfFile>()
 }

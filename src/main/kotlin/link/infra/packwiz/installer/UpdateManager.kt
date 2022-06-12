@@ -8,7 +8,6 @@ import link.infra.packwiz.installer.DownloadTask.Companion.createTasksFromIndex
 import link.infra.packwiz.installer.metadata.IndexFile
 import link.infra.packwiz.installer.metadata.ManifestFile
 import link.infra.packwiz.installer.metadata.PackFile
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.metadata.curseforge.resolveCfMetadata
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
@@ -22,6 +21,7 @@ import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
 import link.infra.packwiz.installer.util.ifletOrErr
+import okhttp3.HttpUrl
 import okio.buffer
 import java.io.*
 import java.nio.file.Files
@@ -42,14 +42,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	}
 
 	data class Options(
-		val downloadURI: SpaceSafeURI,
+		val downloadURI: HttpUrl,
 		val manifestFile: String,
 		val packFolder: String,
 		val side: Side
 	) {
 		// Horrible workaround for default params not working cleanly with nullable values
 		companion object {
-			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, side: Side?) =
+			fun construct(downloadURI: HttpUrl, manifestFile: String?, packFolder: String?, side: Side?) =
 				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", side ?: Side.CLIENT)
 		}
 
@@ -100,7 +100,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		ui.submitProgress(InstallProgress("Checking local files..."))
 
 		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
-		val invalidatedUris: MutableList<SpaceSafeURI> = ArrayList()
+		val invalidatedUris: MutableList<String> = ArrayList()
 		for ((fileUri, file) in manifest.cachedFiles) {
 			// ignore onlyOtherSide files
 			if (file.onlyOtherSide) {
@@ -185,7 +185,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		// TODO: implement
 	}
 
-	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
+	private fun processIndex(indexUri: HttpUrl, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<String>) {
 		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
 			ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
 			if (manifest.cachedFiles.any { it.value.isOptional }) {
@@ -224,7 +224,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		ui.submitProgress(InstallProgress("Checking local files..."))
 		// TODO: use kotlin filtering/FP rather than an iterator?
-		val it: MutableIterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
+		val it: MutableIterator<Map.Entry<String, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
 		while (it.hasNext()) {
 			val (uri, file) = it.next()
 			if (file.cachedLocation != null) {
@@ -240,7 +240,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					file.cachedLocation = null
 					alreadyDeleted = true
 				}
-				if (indexFile.files.none { it.file == uri }) { // File has been removed from the index
+				// TODO: Not sure if toString returns the actual URL
+				if (indexFile.files.none { it.file == uri.toString() }) { // File has been removed from the index
 					if (!alreadyDeleted) {
 						try {
 							Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))

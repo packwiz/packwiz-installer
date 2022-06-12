@@ -7,7 +7,7 @@ class PackFile {
 	var index: IndexFileLoc? = null
 
 	class IndexFileLoc {
-		var file: SpaceSafeURI? = null
+		var file: String? = null
 		@SerializedName("hash-format")
 		var hashFormat: String? = null
 		var hash: String? = null

@@ -3,11 +3,12 @@ package link.infra.packwiz.installer.metadata
 import com.google.gson.annotations.JsonAdapter
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.target.Side
+import okhttp3.HttpUrl
 
 class ManifestFile {
 	var packFileHash: Hash? = null
 	var indexFileHash: Hash? = null
-	var cachedFiles: MutableMap<SpaceSafeURI, File> = HashMap()
+	var cachedFiles: MutableMap<String, File> = HashMap()
 	// If the side changes, EVERYTHING invalidates. FUN!!!
 	var cachedSide = Side.CLIENT
 

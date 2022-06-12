@@ -2,7 +2,6 @@ package link.infra.packwiz.installer
 
 import link.infra.packwiz.installer.metadata.IndexFile
 import link.infra.packwiz.installer.metadata.ManifestFile
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
@@ -10,6 +9,7 @@ import link.infra.packwiz.installer.target.Side
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.util.Log
+import okhttp3.HttpUrl
 import okio.*
 import okio.Path.Companion.toOkioPath
 import java.io.IOException
@@ -91,7 +91,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 	}
 
-	fun downloadMetadata(parentIndexFile: IndexFile, indexUri: SpaceSafeURI) {
+	fun downloadMetadata(parentIndexFile: IndexFile, indexUri: HttpUrl) {
 		if (err != null) return
 
 		if (metadataRequired) {
@@ -132,7 +132,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		if (!alreadyUpToDate) {
 			try {
 				// TODO: only do this for files that didn't exist before or have been modified since last full update?
-				val destPath = Paths.get(packFolder, metadata.destURI.toString())
+				val destPath = Paths.get(packFolder, metadata.destURI)
 				FileSystem.SYSTEM.source(destPath.toOkioPath()).buffer().use { src ->
 					val hash: Hash
 					val fileHashFormat: String
@@ -160,7 +160,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 								return
 							}
 							it.isOptional = isOptional
-							it.cachedLocation = metadata.destURI.toString()
+							it.cachedLocation = metadata.destURI
 							metadata.linkedFile?.let { linked ->
 								try {
 									it.linkedFileHash = linked.hash
@@ -177,7 +177,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 	}
 
-	fun download(packFolder: String, indexUri: SpaceSafeURI) {
+	fun download(packFolder: String, indexUri: HttpUrl) {
 		if (err != null) return
 
 		// Exclude wrong-side and optional false files
@@ -197,7 +197,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 		if (alreadyUpToDate) return
 
-		val destPath = Paths.get(packFolder, metadata.destURI.toString())
+		val destPath = Paths.get(packFolder, metadata.destURI)
 
 		// Don't update files marked with preserve if they already exist on disk
 		if (metadata.preserve) {
@@ -245,7 +245,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				data.clear()
 			} else {
 				// TODO: move println to something visible in the error window
-				println("Invalid hash for " + metadata.destURI.toString())
+				println("Invalid hash for " + metadata.destURI)
 				println("Calculated: " + fileSource.hash)
 				println("Expected:   $hash")
 				// Attempt to get the SHA256 hash
@@ -281,7 +281,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				return
 			}
 			it.isOptional = isOptional
-			it.cachedLocation = metadata.destURI.toString()
+			it.cachedLocation = metadata.destURI
 			metadata.linkedFile?.let { linked ->
 				try {
 					it.linkedFileHash = linked.hash

@@ -2,11 +2,11 @@
 
 package link.infra.packwiz.installer
 
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.target.Side
 import link.infra.packwiz.installer.ui.cli.CLIHandler
 import link.infra.packwiz.installer.ui.gui.GUIHandler
 import link.infra.packwiz.installer.util.Log
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
@@ -68,7 +68,7 @@ class Main(args: Array<String>) {
 
 		val uOptions = try {
 			UpdateManager.Options.construct(
-				downloadURI = SpaceSafeURI(unparsedArgs[0]),
+				downloadURI = unparsedArgs[0].toHttpUrl(),
 				side = cmd.getOptionValue("side")?.let((Side)::from),
 				packFolder = cmd.getOptionValue("pack-folder"),
 				manifestFile = cmd.getOptionValue("meta-file")

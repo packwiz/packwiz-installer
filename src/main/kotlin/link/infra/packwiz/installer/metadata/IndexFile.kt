@@ -7,6 +7,8 @@ import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
 import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
 import link.infra.packwiz.installer.request.HandlerManager.getFileSource
 import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okio.Source
 import okio.buffer
 import java.io.InputStreamReader
@@ -18,21 +20,21 @@ class IndexFile {
 	var files: MutableList<File> = ArrayList()
 
 	class File {
-		var file: SpaceSafeURI? = null
+		var file: String? = null
 		@SerializedName("hash-format")
 		var hashFormat: String? = null
 		var hash: String? = null
-		var alias: SpaceSafeURI? = null
+		var alias: String? = null
 		var metafile = false
 		var preserve = false
 
 		@Transient
 		var linkedFile: ModFile? = null
 		@Transient
-		var linkedFileURI: SpaceSafeURI? = null
+		var linkedFileURI: HttpUrl? = null
 
 		@Throws(Exception::class)
-		fun downloadMeta(parentIndexFile: IndexFile, indexUri: SpaceSafeURI?) {
+		fun downloadMeta(parentIndexFile: IndexFile, indexUri: HttpUrl?) {
 			if (!metafile) {
 				return
 			}
@@ -51,7 +53,7 @@ class IndexFile {
 		}
 
 		@Throws(Exception::class)
-		fun getSource(indexUri: SpaceSafeURI?): Source {
+		fun getSource(indexUri: HttpUrl?): Source {
 			return if (metafile) {
 				if (linkedFile == null) {
 					throw Exception("Linked file doesn't exist!")
@@ -79,19 +81,19 @@ class IndexFile {
 			get() {
 				if (metafile) {
 					return linkedFile?.name ?: linkedFile?.filename ?:
-					file?.run { Paths.get(path ?: return "Invalid file").fileName.toString() } ?: "Invalid file"
+					file?.let { Paths.get(it).fileName.toString() } ?: "Invalid file"
 				}
-				return file?.run { Paths.get(path ?: return "Invalid file").fileName.toString() } ?: "Invalid file"
+				return file?.let { Paths.get(it).fileName.toString() } ?: "Invalid file"
 			}
 
 		// TODO: URIs are bad
-		val destURI: SpaceSafeURI?
+		val destURI: String?
 			get() {
 				if (alias != null) {
 					return alias
 				}
 				return if (metafile && linkedFile != null) {
-					linkedFile?.filename?.let { file?.resolve(it) }
+					linkedFile?.filename?.let { Paths.get(file).parent.resolve(it).toString() }
 				} else {
 					file
 				}

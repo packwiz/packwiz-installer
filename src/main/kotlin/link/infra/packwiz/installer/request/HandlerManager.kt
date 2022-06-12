@@ -1,9 +1,10 @@
 package link.infra.packwiz.installer.request
 
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.request.handlers.RequestHandlerFile
 import link.infra.packwiz.installer.request.handlers.RequestHandlerGithub
 import link.infra.packwiz.installer.request.handlers.RequestHandlerHTTP
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okio.Source
 
 object HandlerManager {
@@ -16,11 +17,11 @@ object HandlerManager {
 
 	 // TODO: get rid of nullable stuff here
 	@JvmStatic
-	fun getNewLoc(base: SpaceSafeURI?, loc: SpaceSafeURI?): SpaceSafeURI? {
+	fun getNewLoc(base: HttpUrl?, loc: String?): HttpUrl? {
 		if (loc == null) {
 			return null
 		}
-		val dest = base?.run { resolve(loc) } ?: loc
+		val dest = base?.run { resolve(loc) } ?: loc.toHttpUrl()
 		for (handler in handlers) with (handler) {
 			if (matchesHandler(dest)) {
 				return getNewLoc(dest)
@@ -37,7 +38,7 @@ object HandlerManager {
 
 	@JvmStatic
 	@Throws(Exception::class)
-	fun getFileSource(loc: SpaceSafeURI): Source {
+	fun getFileSource(loc: HttpUrl): Source {
 		for (handler in handlers) {
 			if (handler.matchesHandler(loc)) {
 				return handler.getFileSource(loc) ?: throw Exception("Couldn't find URI: $loc")
