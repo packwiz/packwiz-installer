@@ -100,7 +100,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 
 		// MultiMC MC and loader version checker
-		val multimcManifestPath = Paths.get(opts.multimcFolder, "mmc-pack.json").toString();
+		val multimcManifestPath = Paths.get(opts.multimcFolder, "mmc-pack.json").toString()
 		val multimcManifestFile = File(multimcManifestPath)
 
 		if (multimcManifestFile.exists()) {
@@ -123,31 +123,21 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 
 			var manifestModified = false
-			val modLoaders = hashMapOf("net.minecraftforge" to "forge", "net.fabricmc.fabric-loader" to "fabric")
+			val modLoaders = hashMapOf("net.minecraft" to "minecraft", "net.minecraftforge" to "forge", "net.fabricmc.fabric-loader" to "fabric", "org.quiltmc.quilt-loader" to "quilt", "com.mumfrey.liteloader" to "liteloader")
 			val modLoadersClasses = modLoaders.entries.associate{(k,v)-> v to k}
 			var modLoaderFound = false
-			var modLoader: String? = null
-			var modLoaderOldVer: String? = null
-			var mcOldVer = "Unknown"
+			val modLoadersFound = HashMap<String, String>() // Key: modLoader, Value: Version
 			val components = multimcManifest["components"].asJsonArray
 			for (componentObj in components) {
 				val component = componentObj.asJsonObject
 
 				val version = component["version"].asString
-				when (component["uid"].asString) {
-					"net.minecraft" -> {
-						mcOldVer = version
-						if (version != pf.versions?.get("minecraft")) {
-							manifestModified = true
-							component.addProperty("version", pf.versions?.get("minecraft"))
-						}
-					}
-				}
 				// If we find any of the modloaders we support, we save it and check the version
 				if (modLoaders.containsKey(component["uid"].asString)) {
-					modLoaderFound = true
-					modLoader = modLoaders.getValue(component["uid"].asString)
-					modLoaderOldVer = version
+					val modLoader = modLoaders.getValue(component["uid"].asString)
+					if (modLoader != "minecraft")
+						modLoaderFound = true // Only set to true if modLoader isn't Minecraft
+					modLoadersFound[modLoader] = version
 					if (version != pf.versions?.get(modLoader)) {
 						manifestModified = true
 						component.addProperty("version", pf.versions?.get(modLoader))
@@ -157,24 +147,24 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 			// If we can't find the mod loader in the MultiMC file, we add it
 			if (!modLoaderFound) {
-				for ((loaderClass, loader) in modLoaders) {
-					if (pf.versions?.containsKey(loader) ?: false) {
-						modLoader = loader
-						break
-					}
+				// Using this filter and loop to handle multiple handlers
+				for ((_, loader) in modLoaders
+						.filter { it.value != "minecraft" && !modLoadersFound.containsKey(it.value) && pf.versions?.containsKey(it.value) == true }
+				) {
+					components.add(gson.toJsonTree(hashMapOf("uid" to modLoadersClasses.get(loader), "version" to pf.versions?.get(loader))))
 				}
-				// If we can't find it in the modpack pack file, something is wrong, we'll stop here
-				if (modLoader == null) ui.showErrorAndExit("Mod Loader not found in modpack pack file")
-
-				components.add(gson.toJsonTree(hashMapOf("uid" to modLoadersClasses.get(modLoader), "version" to pf.versions?.get(modLoader))))
-				manifestModified = true
 			}
+
+			// If mc version change detected, and fabric mappings are found, delete them, MultiMC will add and re-dl the correct one
+			if (modLoadersFound["minecraft"] != pf.versions?.getValue("minecraft"))
+				components.find { it.asJsonObject["uid"].asString == "net.fabricmc.intermediary" }?.asJsonObject?.let { components.remove(it) }
 
 			if (manifestModified) {
 				// The manifest has been modified, so before saving it we'll ask the user
 				// if they wanna update it, continue without updating it, or exit
-				val oldVers = listOf(Pair("minecraft", mcOldVer), Pair(modLoader!!, modLoaderOldVer))
-				val newVers = listOf(Pair("minecraft", pf.versions?.getValue("minecraft")), Pair(modLoader!!, pf.versions?.getValue(modLoader!!)))
+				val oldVers = modLoadersFound.map { Pair(it.key, it.value) }
+				val newVers = pf.versions!!.map { Pair(it.key, it.value) }
+
 
 				when (ui.showUpdateConfirmationDialog(oldVers, newVers)) {
 					IUserInterface.UpdateConfirmationResult.CANCELLED -> {
@@ -183,11 +173,12 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					IUserInterface.UpdateConfirmationResult.CONTINUE -> {
 						cancelledStartGame = true
 					}
+					else -> {} // Compiler is giving warning about "non-exhaustive when", so i'll just add an empty one
 				}
 				handleCancellation()
 
 				multimcManifestFile.writeText(gson.toJson(multimcManifest))
-				Log.info("Updated modpack Minecraft and/or ${modLoader?.replaceFirstChar { it.uppercase() }} version")
+				Log.info("Updated modpack Minecrafts and/or the modloaders version")
 			}
 
 			if (ui.cancelButtonPressed) {
@@ -195,7 +186,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				handleCancellation()
 			}
 		} else {
-			Log.warn("MultiMC installation not detected... Tried looking for it in $multimcManifestPath")
+			Log.info("MultiMC installation not detected... Tried looking for it in $multimcManifestPath")
 		}
 
 		ui.submitProgress(InstallProgress("Checking local files..."))

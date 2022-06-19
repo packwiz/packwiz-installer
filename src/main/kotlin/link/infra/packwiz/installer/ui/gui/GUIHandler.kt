@@ -174,8 +174,7 @@ class GUIHandler : IUserInterface {
 			val newVersIndex = newVersions.map { it.first to it.second }.toMap()
 			val message = StringBuilder()
 			message.append("<html>" +
-					"The modpacks version has been updated.<br>" +
-					"Current versions:" +
+					"This modpack uses newer versions of the following:<br>" +
 					"<ul>")
 
 			for (oldVer in oldVersions) {
@@ -205,7 +204,7 @@ class GUIHandler : IUserInterface {
 			val options = arrayOf("Cancel", "Continue anyways", "Update")
 			val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
 					message,
-					"MultiMC versions updated",
+					"Updating MultiMC versions",
 					JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0])
 			future.complete(
 					when (result) {
