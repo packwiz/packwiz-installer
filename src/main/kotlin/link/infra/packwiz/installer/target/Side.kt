@@ -15,12 +15,12 @@ enum class Side {
 	private val depSides: Array<Side>?
 
 	constructor(sideName: String) {
-		this.sideName = sideName.toLowerCase()
+		this.sideName = sideName.lowercase()
 		depSides = null
 	}
 
 	constructor(sideName: String, depSides: Array<Side>) {
-		this.sideName = sideName.toLowerCase()
+		this.sideName = sideName.lowercase()
 		this.depSides = depSides
 	}
 
@@ -42,7 +42,7 @@ enum class Side {
 
 	companion object {
 		fun from(name: String): Side? {
-			val lowerName = name.toLowerCase()
+			val lowerName = name.lowercase()
 			for (side in values()) {
 				if (side.sideName == lowerName) {
 					return side
