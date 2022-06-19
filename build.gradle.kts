@@ -1,14 +1,3 @@
-buildscript {
-	repositories {
-		mavenCentral()
-	}
-	dependencies {
-		classpath("com.guardsquare:proguard-gradle:7.1.0") {
-			exclude("com.android.tools.build")
-		}
-	}
-}
-
 plugins {
 	java
 	application
@@ -26,7 +15,10 @@ java {
 
 repositories {
 	mavenCentral()
+	google()
 }
+
+val r8 by configurations.creating
 
 dependencies {
 	implementation("commons-cli:commons-cli:1.5.0")
@@ -36,6 +28,8 @@ dependencies {
 	implementation(kotlin("stdlib-jdk8"))
 	implementation("com.squareup.okhttp3:okhttp:4.9.3")
 	implementation("com.michael-bull.kotlin-result:kotlin-result:1.1.14")
+
+	r8("com.android.tools:r8:3.3.28")
 }
 
 application {
@@ -60,8 +54,6 @@ licenseReport {
 }
 
 tasks.shadowJar {
-	exclude("**/*.kotlin_metadata")
-	exclude("**/*.kotlin_builtins")
 	exclude("META-INF/maven/**/*")
 	exclude("META-INF/proguard/**/*")
 
@@ -73,33 +65,24 @@ tasks.shadowJar {
 	exclude("META-INF/NOTICE.txt")
 }
 
-tasks.register<proguard.gradle.ProGuardTask>("shrinkJar") {
-	injars(tasks.shadowJar)
-	outjars("build/libs/" + tasks.shadowJar.get().outputs.files.first().name.removeSuffix(".jar") + "-shrink.jar")
-	if (System.getProperty("java.version").startsWith("1.")) {
-		libraryjars("${System.getProperty("java.home")}/lib/rt.jar")
-		libraryjars("${System.getProperty("java.home")}/lib/jce.jar")
-	} else {
-		// Use jmods for Java 9+
-		val mods = listOf("java.base", "java.logging", "java.desktop", "java.sql")
-		for (mod in mods) {
-			libraryjars(mapOf(
-				"jarfilter" to "!**.jar",
-				"filter" to "!module-info.class"
-			), "${System.getProperty("java.home")}/jmods/$mod.jmod")
-		}
-	}
+tasks.register<JavaExec>("shrinkJar") {
+	val rules = file("src/main/proguard.txt")
+	val r8File = tasks.shadowJar.get().archiveFile.get().asFile.run { resolveSibling(name.removeSuffix(".jar") + "-shrink.jar") }
+	dependsOn(configurations.named("runtimeClasspath"))
+	inputs.files(tasks.shadowJar, rules)
+	outputs.file(r8File)
 
-	keep("class link.infra.packwiz.installer.** { *; }")
-	dontoptimize()
-	dontobfuscate()
-
-	// Used by Okio and OkHttp
-	dontwarn("org.codehaus.mojo.animal_sniffer.*")
-	dontwarn("okhttp3.internal.platform.**")
-	dontwarn("org.conscrypt.**")
-	dontwarn("org.bouncycastle.**")
-	dontwarn("org.openjsse.**")
+	classpath(r8)
+	mainClass.set("com.android.tools.r8.R8")
+	args = mutableListOf(
+		"--release",
+		"--classfile",
+		"--output", r8File.toString(),
+		"--pg-conf", rules.toString(),
+		"--lib", System.getProperty("java.home"),
+		"--lib", System.getProperty("java.home") + "/lib/jce.jar", // javax.crypto, necessary on <1.9 for compiling Okio
+		tasks.shadowJar.get().archiveFile.get().asFile.toString()
+	)
 }
 
 // Used for vscode launch.json
@@ -107,9 +90,11 @@ tasks.register<Copy>("copyJar") {
 	from(tasks.named("shrinkJar"))
 	rename("packwiz-installer-(.*)\\.jar", "packwiz-installer.jar")
 	into("build/libs/")
+	outputs.file("build/libs/packwiz-installer.jar")
 }
 
-tasks.build {
+tasks.assemble {
+	dependsOn("shrinkJar")
 	dependsOn("copyJar")
 }
 
@@ -132,13 +117,13 @@ if (project.hasProperty("github.token")) {
 tasks.compileKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
-		freeCompilerArgs = listOf("-Xjvm-default=enable", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi")
+		freeCompilerArgs = listOf("-Xjvm-default=all", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi", "-Xlambdas=indy")
 	}
 }
 tasks.compileTestKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
-		freeCompilerArgs = listOf("-Xjvm-default=enable", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi")
+		freeCompilerArgs = listOf("-Xjvm-default=all", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi", "-Xlambdas=indy")
 	}
 }
 

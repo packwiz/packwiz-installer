@@ -1,0 +1,17 @@
+-dontoptimize
+-dontobfuscate
+
+# Used by Okio and OkHttp
+-dontwarn org.codehaus.mojo.animal_sniffer.*
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+
+-keep class !link.infra.packwiz.installer.deps.**,link.infra.packwiz.installer.** { *; }
+
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+
+-renamesourcefileattribute SourceFile
+-keepattributes *Annotation*,SourceFile,LineNumberTable,Signature
