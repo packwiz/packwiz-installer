@@ -54,6 +54,8 @@ licenseReport {
 }
 
 tasks.shadowJar {
+	exclude("**/*.kotlin_metadata")
+	exclude("**/*.kotlin_builtins")
 	exclude("META-INF/maven/**/*")
 	exclude("META-INF/proguard/**/*")
 
@@ -80,7 +82,10 @@ tasks.register<JavaExec>("shrinkJar") {
 		"--output", r8File.toString(),
 		"--pg-conf", rules.toString(),
 		"--lib", System.getProperty("java.home"),
-		"--lib", System.getProperty("java.home") + "/lib/jce.jar", // javax.crypto, necessary on <1.9 for compiling Okio
+		*(if (System.getProperty("java.version").startsWith("1.")) {
+			// javax.crypto, necessary on <1.9 for compiling Okio
+			arrayOf("--lib", System.getProperty("java.home") + "/lib/jce.jar")
+		} else { arrayOf() }),
 		tasks.shadowJar.get().archiveFile.get().asFile.toString()
 	)
 }
