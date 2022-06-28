@@ -71,6 +71,7 @@ class Main(args: Array<String>) {
 				downloadURI = SpaceSafeURI(unparsedArgs[0]),
 				side = cmd.getOptionValue("side")?.let((Side)::from),
 				packFolder = cmd.getOptionValue("pack-folder"),
+				multimcFolder = cmd.getOptionValue("multimc-folder"),
 				manifestFile = cmd.getOptionValue("meta-file")
 			)
 		} catch (e: URISyntaxException) {
@@ -94,6 +95,7 @@ class Main(args: Array<String>) {
 			options.addOption("s", "side", true, "Side to install mods from (client/server, defaults to client)")
 			options.addOption(null, "title", true, "Title of the installer window")
 			options.addOption(null, "pack-folder", true, "Folder to install the pack to (defaults to the JAR directory)")
+			options.addOption(null, "multimc-folder", true, "The MultiMC pack folder (defaults to the parent of the pack directory)")
 			options.addOption(null, "meta-file", true, "JSON file to store pack metadata, relative to the pack folder (defaults to packwiz.json)")
 		}
 

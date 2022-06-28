@@ -45,12 +45,13 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val downloadURI: SpaceSafeURI,
 		val manifestFile: String,
 		val packFolder: String,
+		val multimcFolder: String,
 		val side: Side
 	) {
 		// Horrible workaround for default params not working cleanly with nullable values
 		companion object {
-			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, side: Side?) =
-				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", side ?: Side.CLIENT)
+			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, multimcFolder: String?, side: Side?) =
+				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", multimcFolder ?: "..", side ?: Side.CLIENT)
 		}
 
 	}
@@ -90,6 +91,26 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			} catch (e: IllegalStateException) {
 				ui.showErrorAndExit("Failed to parse pack.toml", e)
 			}
+		}
+
+		if (ui.cancelButtonPressed) {
+			showCancellationDialog()
+			handleCancellation()
+		}
+
+		// Launcher checks
+		val lu = LauncherUtils(opts, ui)
+
+		// MultiMC MC and loader version checker
+		ui.submitProgress(InstallProgress("Loading MultiMC pack file..."))
+		try {
+			when (lu.handleMultiMC(pf, gson)) {
+				LauncherUtils.LauncherStatus.Cancelled -> cancelled = true
+				LauncherUtils.LauncherStatus.NotFound -> Log.info("MultiMC not detected")
+			}
+			handleCancellation()
+		} catch (e: Exception) {
+			ui.showErrorAndExit(e.message!!, e)
 		}
 
 		if (ui.cancelButtonPressed) {
@@ -163,7 +184,6 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		handleCancellation()
 
-		// TODO: update MMC params, java args etc
 
 		// If there were errors, don't write the manifest/index hashes, to ensure they are rechecked later
 		if (errorsOccurred) {
