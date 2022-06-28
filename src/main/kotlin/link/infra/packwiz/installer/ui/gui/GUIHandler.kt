@@ -166,6 +166,58 @@ class GUIHandler : IUserInterface {
 		return future.get()
 	}
 
+	override fun showUpdateConfirmationDialog(oldVersions: List<Pair<String, String?>>, newVersions: List<Pair<String, String?>>): IUserInterface.UpdateConfirmationResult {
+		assert(newVersions.isNotEmpty())
+		val future = CompletableFuture<IUserInterface.UpdateConfirmationResult>()
+		EventQueue.invokeLater {
+			val oldVersIndex = oldVersions.map { it.first to it.second }.toMap()
+			val newVersIndex = newVersions.map { it.first to it.second }.toMap()
+			val message = StringBuilder()
+			message.append("<html>" +
+					"This modpack uses newer versions of the following:<br>" +
+					"<ul>")
+
+			for (oldVer in oldVersions) {
+				val correspondingNewVer = newVersIndex[oldVer.first]
+				message.append("<li>")
+				message.append(oldVer.first.replaceFirstChar { it.uppercase() })
+				message.append(": <font color=${if (oldVer.second != correspondingNewVer) "#ff0000" else "#000000"}>")
+				message.append(oldVer.second ?: "Not found")
+				message.append("</font></li>")
+			}
+			message.append("</ul>")
+
+			message.append("New versions:" +
+					"<ul>")
+			for (newVer in newVersions) {
+				val correspondingOldVer = oldVersIndex[newVer.first]
+				message.append("<li>")
+				message.append(newVer.first.replaceFirstChar { it.uppercase() })
+				message.append(": <font color=${if (newVer.second != correspondingOldVer) "#00ff00" else "#000000"}>")
+				message.append(newVer.second ?: "Not found")
+				message.append("</font></li>")
+			}
+			message.append("</ul><br>" +
+					"Would you like to update the versions, launch without updating, or cancel the launch?")
+
+
+			val options = arrayOf("Cancel", "Continue anyways", "Update")
+			val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
+					message,
+					"Updating MultiMC versions",
+					JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0])
+			future.complete(
+					when (result) {
+						JOptionPane.CLOSED_OPTION, 0 -> IUserInterface.UpdateConfirmationResult.CANCELLED
+						1 -> IUserInterface.UpdateConfirmationResult.CONTINUE
+						2 -> IUserInterface.UpdateConfirmationResult.UPDATE
+						else -> IUserInterface.UpdateConfirmationResult.CANCELLED
+					}
+			)
+		}
+		return future.get()
+	}
+
 	override fun awaitOptionalButton(showCancel: Boolean) {
 		EventQueue.invokeAndWait {
 			frmPackwizlauncher.showOk(!showCancel)

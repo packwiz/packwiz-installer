@@ -31,7 +31,7 @@ repositories {
 dependencies {
 	implementation("commons-cli:commons-cli:1.5.0")
 	implementation("com.moandjiezana.toml:toml4j:0.7.2")
-	implementation("com.google.code.gson:gson:2.8.9")
+	implementation("com.google.code.gson:gson:2.9.0")
 	implementation("com.squareup.okio:okio:3.0.0")
 	implementation(kotlin("stdlib-jdk8"))
 	implementation("com.squareup.okhttp3:okhttp:4.9.3")
