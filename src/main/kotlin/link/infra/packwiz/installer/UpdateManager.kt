@@ -105,8 +105,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		ui.submitProgress(InstallProgress("Loading MultiMC pack file..."))
 		try {
 			when (lu.handleMultiMC(pf, gson)) {
-				LauncherUtils.LauncherStatus.Cancelled -> cancelled = true
-				LauncherUtils.LauncherStatus.NotFound -> Log.info("MultiMC not detected")
+				LauncherUtils.LauncherStatus.CANCELLED -> cancelled = true
+				LauncherUtils.LauncherStatus.NOT_FOUND -> Log.info("MultiMC not detected")
+				else -> {}
 			}
 			handleCancellation()
 		} catch (e: Exception) {
