@@ -15,7 +15,7 @@ data class CachedTarget(
 	 */
 	val cachedLocation: Path,
 	val enabled: Boolean,
-	val hash: Hash,
+	val hash: Hash<*>,
 	/**
 	 * For detecting when a target transitions non-optional -> optional and showing the option selection screen
 	 */

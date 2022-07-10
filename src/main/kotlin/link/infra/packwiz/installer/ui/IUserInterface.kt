@@ -41,6 +41,16 @@ interface IUserInterface {
 
 	var optionsButtonPressed: Boolean
 	var cancelButtonPressed: Boolean
+	var cancelCallback: (() -> Unit)?
 
 	var firstInstall: Boolean
+
+}
+
+inline fun <T> IUserInterface.wrap(message: String, inner: () -> T): T {
+	return try {
+		inner.invoke()
+	} catch (e: Exception) {
+		showErrorAndExit(message, e)
+	}
 }

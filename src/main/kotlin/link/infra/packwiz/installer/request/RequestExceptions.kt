@@ -1,6 +1,5 @@
 package link.infra.packwiz.installer.request
 
-import okhttp3.Response
 import okio.IOException
 
 sealed class RequestException: Exception {
@@ -14,14 +13,12 @@ sealed class RequestException: Exception {
 		constructor(message: String, cause: Throwable) : super(message, cause)
 		constructor(message: String) : super(message)
 
-		class UnsinkableBase: Internal("Base associated with this path is not a SinkableBase")
-
 		sealed class HTTP: Internal {
 			constructor(message: String, cause: Throwable) : super(message, cause)
 			constructor(message: String) : super(message)
 
 			class NoResponseBody: HTTP("HTTP response in onResponse must have a response body")
-			class RequestFailed(cause: IOException): HTTP("HTTP request failed; may have been cancelled", cause)
+			class RequestFailed(cause: IOException): HTTP("HTTP request failed", cause)
 			class IllegalState(cause: IllegalStateException): HTTP("Internal fatal HTTP request error", cause)
 		}
 	}
@@ -47,16 +44,16 @@ sealed class RequestException: Exception {
 
 		// TODO: fancier way of displaying this?
 		sealed class HTTP: Response {
-			val response: okhttp3.Response
+			val res: okhttp3.Response
 
-			constructor(response: okhttp3.Response, message: String, cause: Throwable) : super(message, cause) {
-				this.response = response
+			constructor(req: okhttp3.Request, res: okhttp3.Response, message: String, cause: Throwable) : super("Failed to make HTTP request to ${req.url}: $message", cause) {
+				this.res = res
 			}
-			constructor(response: okhttp3.Response, message: String) : super(message) {
-				this.response = response
+			constructor(req: okhttp3.Request, res: okhttp3.Response, message: String) : super("Failed to make HTTP request to ${req.url}: $message") {
+				this.res = res
 			}
 
-			class ErrorCode(res: okhttp3.Response): HTTP(res, "Non-successful error code from HTTP request: ${res.code}")
+			class ErrorCode(req: okhttp3.Request, res: okhttp3.Response): HTTP(req, res, "Non-successful error code from HTTP request: ${res.code}")
 		}
 
 		sealed class File: RequestException {

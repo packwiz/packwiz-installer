@@ -3,8 +3,8 @@ plugins {
 	application
 	id("com.github.johnrengelman.shadow") version "7.1.2"
 	id("com.palantir.git-version") version "0.13.0"
-	id("com.github.breadmoirai.github-release") version "2.2.12"
-	kotlin("jvm") version "1.6.10"
+	id("com.github.breadmoirai.github-release") version "2.4.1"
+	kotlin("jvm") version "1.7.10"
 	id("com.github.jk1.dependency-license-report") version "2.0"
 	`maven-publish`
 }
@@ -16,18 +16,20 @@ java {
 repositories {
 	mavenCentral()
 	google()
+	maven {
+		url = uri("https://jitpack.io")
+	}
 }
 
 val r8 by configurations.creating
 
 dependencies {
 	implementation("commons-cli:commons-cli:1.5.0")
-	implementation("com.moandjiezana.toml:toml4j:0.7.2")
 	implementation("com.google.code.gson:gson:2.9.0")
-	implementation("com.squareup.okio:okio:3.0.0")
+	implementation("com.squareup.okio:okio:3.1.0")
 	implementation(kotlin("stdlib-jdk8"))
-	implementation("com.squareup.okhttp3:okhttp:4.9.3")
-	implementation("com.michael-bull.kotlin-result:kotlin-result:1.1.14")
+	implementation("com.squareup.okhttp3:okhttp:4.10.0")
+	implementation("cc.ekblad:4koma:1.1.0")
 
 	r8("com.android.tools:r8:3.3.28")
 }
@@ -54,8 +56,9 @@ licenseReport {
 }
 
 tasks.shadowJar {
-	exclude("**/*.kotlin_metadata")
-	exclude("**/*.kotlin_builtins")
+	// 4koma uses kotlin-reflect; requires Kotlin metadata
+	//exclude("**/*.kotlin_metadata")
+	//exclude("**/*.kotlin_builtins")
 	exclude("META-INF/maven/**/*")
 	exclude("META-INF/proguard/**/*")
 

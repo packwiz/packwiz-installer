@@ -1,5 +1,7 @@
 package link.infra.packwiz.installer.target
 
+import cc.ekblad.toml.model.TomlValue
+import cc.ekblad.toml.tomlMapper
 import com.google.gson.annotations.SerializedName
 
 enum class Side {
@@ -49,6 +51,11 @@ enum class Side {
 				}
 			}
 			return null
+		}
+
+		fun mapper() = tomlMapper {
+			encoder { it: Side -> TomlValue.String(it.sideName) }
+			decoder { it: TomlValue.String -> from(it.value) ?: throw Exception("Invalid side name ${it.value}") }
 		}
 	}
 }

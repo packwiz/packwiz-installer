@@ -4,8 +4,8 @@ import link.infra.packwiz.installer.target.path.PackwizPath
 
 // TODO: rename to avoid conflicting with @Target
 interface Target {
-	val src: PackwizPath
-	val dest: PackwizPath
+	val src: PackwizPath<*>
+	val dest: PackwizPath<*>
 	val validityToken: ValidityToken
 
 	/**
@@ -19,16 +19,16 @@ interface Target {
 	 * be preserved across renames.
 	 */
 	@JvmInline
-	value class PathIdentityToken(val path: String): IdentityToken
+	value class PathIdentityToken(val path: PackwizPath<*>): IdentityToken
 
 	val ident: IdentityToken
-		get() = PathIdentityToken(dest.path)
+		get() = PathIdentityToken(dest) // TODO: should use local-rebased path?
 
 	/**
 	 * A user-friendly name; defaults to the destination path of the file.
 	 */
 	val name: String
-		get() = dest.path
+		get() = dest.filename
 	val side: Side
 		get() = Side.BOTH
 	val overwriteMode: OverwriteMode

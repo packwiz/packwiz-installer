@@ -1,10 +1,14 @@
 package link.infra.packwiz.installer.metadata.curseforge
 
-import com.google.gson.annotations.SerializedName
+import cc.ekblad.toml.tomlMapper
 
-class CurseForgeUpdateData: UpdateData {
-	@SerializedName("file-id")
-	var fileId = 0
-	@SerializedName("project-id")
-	var projectId = 0
+data class CurseForgeUpdateData(
+	val fileId: Int,
+	val projectId: Int,
+): UpdateData {
+	companion object {
+		fun mapper() = tomlMapper {
+			mapping<CurseForgeUpdateData>("file-id" to "fileId", "project-id" to "projectId")
+		}
+	}
 }

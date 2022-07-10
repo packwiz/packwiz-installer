@@ -28,7 +28,10 @@ class GUIHandler : IUserInterface {
 		set(value) {
 			optionalSelectedLatch.countDown()
 			field = value
+			cancelCallback?.invoke()
 		}
+	@Volatile
+	override var cancelCallback: (() -> Unit)? = null
 	var okButtonPressed = false
 		set(value) {
 			optionalSelectedLatch.countDown()

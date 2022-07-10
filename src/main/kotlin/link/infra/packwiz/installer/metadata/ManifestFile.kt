@@ -3,23 +3,23 @@ package link.infra.packwiz.installer.metadata
 import com.google.gson.annotations.JsonAdapter
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.target.Side
+import link.infra.packwiz.installer.target.path.PackwizFilePath
 
 class ManifestFile {
-	var packFileHash: Hash? = null
-	var indexFileHash: Hash? = null
-	var cachedFiles: MutableMap<SpaceSafeURI, File> = HashMap()
+	var packFileHash: Hash<*>? = null
+	var indexFileHash: Hash<*>? = null
+	var cachedFiles: MutableMap<PackwizFilePath, File> = HashMap()
 	// If the side changes, EVERYTHING invalidates. FUN!!!
 	var cachedSide = Side.CLIENT
 
-	// TODO: switch to Kotlin-friendly JSON/TOML libs?
 	class File {
 		@Transient
 		var revert: File? = null
 			private set
 
-		var hash: Hash? = null
-		var linkedFileHash: Hash? = null
-		var cachedLocation: String? = null
+		var hash: Hash<*>? = null
+		var linkedFileHash: Hash<*>? = null
+		var cachedLocation: PackwizFilePath? = null
 
 		@JsonAdapter(EfficientBooleanAdapter::class)
 		var isOptional = false

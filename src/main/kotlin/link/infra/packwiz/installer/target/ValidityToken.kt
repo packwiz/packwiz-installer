@@ -12,5 +12,5 @@ interface ValidityToken {
 	 * Default implementation of ValidityToken based on a single hash.
 	 */
 	@JvmInline
-	value class HashValidityToken(val hash: Hash): ValidityToken
+	value class HashValidityToken(val hash: Hash<*>): ValidityToken
 }

@@ -2,24 +2,24 @@ package link.infra.packwiz.installer
 
 import link.infra.packwiz.installer.metadata.IndexFile
 import link.infra.packwiz.installer.metadata.ManifestFile
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.metadata.hash.Hash
-import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
-import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
+import link.infra.packwiz.installer.metadata.hash.HashFormat
+import link.infra.packwiz.installer.request.RequestException
+import link.infra.packwiz.installer.target.ClientHolder
 import link.infra.packwiz.installer.target.Side
+import link.infra.packwiz.installer.target.path.PackwizFilePath
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.util.Log
-import okio.*
-import okio.Path.Companion.toOkioPath
+import okio.Buffer
+import okio.HashingSink
+import okio.blackholeSink
+import okio.buffer
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-import java.util.*
-import kotlin.io.use
 
-internal class DownloadTask private constructor(val metadata: IndexFile.File, defaultFormat: String, private val downloadSide: Side) : IOptionDetails {
+internal class DownloadTask private constructor(val metadata: IndexFile.File, val index: IndexFile, private val downloadSide: Side) : IOptionDetails {
 	var cachedFile: ManifestFile.File? = null
 
 	private var err: Exception? = null
@@ -33,7 +33,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 	// If file is new or isOptional changed to true, the option needs to be presented again
 	private var newOptional = true
 
-	val isOptional get() = metadata.linkedFile?.isOptional ?: false
+	val isOptional get() = metadata.linkedFile?.option?.optional ?: false
 
 	fun isNewOptional() = isOptional && newOptional
 
@@ -53,12 +53,6 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 
 	override val optionDescription get() = metadata.linkedFile?.option?.description ?: ""
 
-	init {
-		if (metadata.hashFormat?.isEmpty() != false) {
-			metadata.hashFormat = defaultFormat
-		}
-	}
-
 	fun invalidate() {
 		invalidated = true
 		alreadyUpToDate = false
@@ -74,7 +68,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		this.cachedFile = cachedFile
 		if (!invalidated) {
 			val currHash = try {
-				getHash(metadata.hashFormat!!, metadata.hash!!)
+				metadata.getHashObj(index)
 			} catch (e: Exception) {
 				err = e
 				return
@@ -91,13 +85,13 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 	}
 
-	fun downloadMetadata(parentIndexFile: IndexFile, indexUri: SpaceSafeURI) {
+	fun downloadMetadata(clientHolder: ClientHolder) {
 		if (err != null) return
 
 		if (metadataRequired) {
 			try {
 				// Retrieve the linked metadata file
-				metadata.downloadMeta(parentIndexFile, indexUri)
+				metadata.downloadMeta(index, clientHolder)
 			} catch (e: Exception) {
 				err = e
 				return
@@ -105,16 +99,14 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 			cachedFile?.let { cachedFile ->
 				val linkedFile = metadata.linkedFile
 				if (linkedFile != null) {
-					linkedFile.option?.let { opt ->
-						if (opt.optional) {
-							if (cachedFile.isOptional) {
-								// isOptional didn't change
-								newOptional = false
-							} else {
-								// isOptional false -> true, set option to it's default value
-								// TODO: preserve previous option value, somehow??
-								cachedFile.optionValue = opt.defaultValue
-							}
+					if (linkedFile.option.optional) {
+						if (cachedFile.isOptional) {
+							// isOptional didn't change
+							newOptional = false
+						} else {
+							// isOptional false -> true, set option to it's default value
+							// TODO: preserve previous option value, somehow??
+							cachedFile.optionValue = linkedFile.option.defaultValue
 						}
 					}
 					cachedFile.isOptional = isOptional
@@ -128,39 +120,40 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 	 * Check if the file in the destination location is already valid
 	 * Must be done after metadata retrieval
 	 */
-	fun validateExistingFile(packFolder: String) {
+	fun validateExistingFile(packFolder: PackwizFilePath, clientHolder: ClientHolder) {
 		if (!alreadyUpToDate) {
 			try {
 				// TODO: only do this for files that didn't exist before or have been modified since last full update?
-				val destPath = Paths.get(packFolder, metadata.destURI.toString())
-				FileSystem.SYSTEM.source(destPath.toOkioPath()).buffer().use { src ->
-					val hash: Hash
-					val fileHashFormat: String
+				val destPath = metadata.destURI.rebase(packFolder)
+				destPath.source(clientHolder).use { src ->
+					// TODO: clean up duplicated code
+					val hash: Hash<*>
+					val fileHashFormat: HashFormat<*>
 					val linkedFile = metadata.linkedFile
 
 					if (linkedFile != null) {
 						hash = linkedFile.hash
-						fileHashFormat = linkedFile.download!!.hashFormat!!
+						fileHashFormat = linkedFile.download.hashFormat
 					} else {
-						hash = metadata.getHashObj()
-						fileHashFormat = metadata.hashFormat!!
+						hash = metadata.getHashObj(index)
+						fileHashFormat = metadata.hashFormat(index)
 					}
 
-					val fileSource = getHasher(fileHashFormat).getHashingSource(src)
+					val fileSource = fileHashFormat.source(src)
 					fileSource.buffer().readAll(blackholeSink())
-					if (fileSource.hashIsEqual(hash)) {
+					if (hash == fileSource.hash) {
 						alreadyUpToDate = true
 
 						// Update the manifest file
 						cachedFile = (cachedFile ?: ManifestFile.File()).also {
 							try {
-								it.hash = metadata.getHashObj()
+								it.hash = metadata.getHashObj(index)
 							} catch (e: Exception) {
 								err = e
 								return
 							}
 							it.isOptional = isOptional
-							it.cachedLocation = metadata.destURI.toString()
+							it.cachedLocation = metadata.destURI.rebase(packFolder)
 							metadata.linkedFile?.let { linked ->
 								try {
 									it.linkedFileHash = linked.hash
@@ -171,13 +164,15 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 						}
 					}
 				}
+			} catch (e: RequestException) {
+				// Ignore exceptions; if the file doesn't exist we'll be downloading it
 			} catch (e: IOException) {
 				// Ignore exceptions; if the file doesn't exist we'll be downloading it
 			}
 		}
 	}
 
-	fun download(packFolder: String, indexUri: SpaceSafeURI) {
+	fun download(packFolder: PackwizFilePath, clientHolder: ClientHolder) {
 		if (err != null) return
 
 		// Exclude wrong-side and optional false files
@@ -186,7 +181,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				if (it.cachedLocation != null) {
 					// Ensure wrong-side or optional false files are removed
 					try {
-						Files.deleteIfExists(Paths.get(packFolder, it.cachedLocation))
+						Files.deleteIfExists(it.cachedLocation!!.nioPath)
 					} catch (e: IOException) {
 						Log.warn("Failed to delete file", e)
 					}
@@ -197,33 +192,32 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		}
 		if (alreadyUpToDate) return
 
-		val destPath = Paths.get(packFolder, metadata.destURI.toString())
+		val destPath = metadata.destURI.rebase(packFolder)
 
 		// Don't update files marked with preserve if they already exist on disk
 		if (metadata.preserve) {
-			if (destPath.toFile().exists()) {
+			if (destPath.nioPath.toFile().exists()) {
 				return
 			}
 		}
 
-		// TODO: if already exists and has correct hash, ignore?
 		// TODO: add .disabled support?
 
 		try {
-			val hash: Hash
-			val fileHashFormat: String
+			val hash: Hash<*>
+			val fileHashFormat: HashFormat<*>
 			val linkedFile = metadata.linkedFile
 
 			if (linkedFile != null) {
 				hash = linkedFile.hash
-				fileHashFormat = linkedFile.download!!.hashFormat!!
+				fileHashFormat = linkedFile.download.hashFormat
 			} else {
-				hash = metadata.getHashObj()
-				fileHashFormat = metadata.hashFormat!!
+				hash = metadata.getHashObj(index)
+				fileHashFormat = metadata.hashFormat(index)
 			}
 
-			val src = metadata.getSource(indexUri)
-			val fileSource = getHasher(fileHashFormat).getHashingSource(src)
+			val src = metadata.getSource(clientHolder)
+			val fileSource = fileHashFormat.source(src)
 			val data = Buffer()
 
 			// Read all the data into a buffer (very inefficient for large files! but allows rollback if hash check fails)
@@ -232,16 +226,16 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				it.readAll(data)
 			}
 
-			if (fileSource.hashIsEqual(hash)) {
+			if (hash == fileSource.hash) {
 				// isDirectory follows symlinks, but createDirectories doesn't
 				try {
-					Files.createDirectories(destPath.parent)
+					Files.createDirectories(destPath.parent.nioPath)
 				} catch (e: java.nio.file.FileAlreadyExistsException) {
-					if (!Files.isDirectory(destPath.parent)) {
+					if (!Files.isDirectory(destPath.parent.nioPath)) {
 						throw e
 					}
 				}
-				Files.copy(data.inputStream(), destPath, StandardCopyOption.REPLACE_EXISTING)
+				Files.copy(data.inputStream(), destPath.nioPath, StandardCopyOption.REPLACE_EXISTING)
 				data.clear()
 			} else {
 				// TODO: move println to something visible in the error window
@@ -257,10 +251,10 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 				return
 			}
 			cachedFile?.cachedLocation?.let {
-				if (destPath != Paths.get(packFolder, it)) {
+				if (destPath != it) {
 					// Delete old file if location changes
 					try {
-						Files.delete(Paths.get(packFolder, cachedFile!!.cachedLocation))
+						Files.delete(cachedFile!!.cachedLocation!!.nioPath)
 					} catch (e: IOException) {
 						// Continue, as it was probably already deleted?
 						// TODO: log it
@@ -275,13 +269,13 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 		// Update the manifest file
 		cachedFile = (cachedFile ?: ManifestFile.File()).also {
 			try {
-				it.hash = metadata.getHashObj()
+				it.hash = metadata.getHashObj(index)
 			} catch (e: Exception) {
 				err = e
 				return
 			}
 			it.isOptional = isOptional
-			it.cachedLocation = metadata.destURI.toString()
+			it.cachedLocation = metadata.destURI.rebase(packFolder)
 			metadata.linkedFile?.let { linked ->
 				try {
 					it.linkedFileHash = linked.hash
@@ -293,11 +287,10 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, de
 	}
 
 	companion object {
-		@JvmStatic
-		fun createTasksFromIndex(index: IndexFile, defaultFormat: String, downloadSide: Side): MutableList<DownloadTask> {
+		fun createTasksFromIndex(index: IndexFile, downloadSide: Side): MutableList<DownloadTask> {
 			val tasks = ArrayList<DownloadTask>()
-			for (file in Objects.requireNonNull(index.files)) {
-				tasks.add(DownloadTask(file, defaultFormat, downloadSide))
+			for (file in index.files) {
+				tasks.add(DownloadTask(file, index, downloadSide))
 			}
 			return tasks
 		}

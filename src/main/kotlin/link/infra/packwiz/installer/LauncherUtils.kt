@@ -7,8 +7,8 @@ import com.google.gson.JsonSyntaxException
 import link.infra.packwiz.installer.metadata.PackFile
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.util.Log
-import java.io.File
-import java.nio.file.Paths
+import kotlin.io.path.reader
+import kotlin.io.path.writeText
 
 class LauncherUtils internal constructor(private val opts: UpdateManager.Options, val ui: IUserInterface) {
 	enum class LauncherStatus {
@@ -20,14 +20,13 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 
 	fun handleMultiMC(pf: PackFile, gson: Gson): LauncherStatus {
 		// MultiMC MC and loader version checker
-		val manifestPath = Paths.get(opts.multimcFolder, "mmc-pack.json").toString()
-		val manifestFile = File(manifestPath)
+		val manifestPath = opts.multimcFolder / "mmc-pack.json"
 
-		if (!manifestFile.exists()) {
+		if (!manifestPath.nioPath.toFile().exists()) {
 			return LauncherStatus.NOT_FOUND
 		}
 
-		val multimcManifest = manifestFile.reader().use {
+		val multimcManifest = manifestPath.nioPath.reader().use {
 			try {
 				JsonParser.parseReader(it)
 			} catch (e: JsonIOException) {
@@ -64,7 +63,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 			if (modLoaders.containsKey(component["uid"]?.asString)) {
 				val modLoader = modLoaders.getValue(component["uid"]!!.asString)
 				loaderVersionsFound[modLoader] = version
-				if (version != pf.versions?.get(modLoader)) {
+				if (version != pf.versions[modLoader]) {
 					outdatedLoaders.add(modLoader)
 					true // Delete component; cached metadata is invalid and will be re-added
 				} else {
@@ -75,18 +74,18 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 
 		for ((_, loader) in modLoaders
 			.filter {
-				(!loaderVersionsFound.containsKey(it.value) || outdatedLoaders.contains(it.value))
-					&& pf.versions?.containsKey(it.value) == true }
+				(!loaderVersionsFound.containsKey(it.value) || outdatedLoaders.contains(it.value)) && pf.versions.containsKey(it.value)
+			}
 		) {
 			manifestModified = true
 			components.add(gson.toJsonTree(
-				hashMapOf("uid" to modLoadersClasses[loader], "version" to pf.versions?.get(loader)))
+				hashMapOf("uid" to modLoadersClasses[loader], "version" to pf.versions[loader]))
 			)
 		}
 
 		// If inconsistent Intermediary mappings version is found, delete it - MultiMC will add and re-dl the correct one
 		components.find { it.isJsonObject && it.asJsonObject["uid"]?.asString == "net.fabricmc.intermediary" }?.let {
-			if (it.asJsonObject["version"]?.asString != pf.versions?.get("minecraft")) {
+			if (it.asJsonObject["version"]?.asString != pf.versions["minecraft"]) {
 				components.remove(it)
 				manifestModified = true
 			}
@@ -96,7 +95,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 			// The manifest has been modified, so before saving it we'll ask the user
 			// if they wanna update it, continue without updating it, or exit
 			val oldVers = loaderVersionsFound.map { Pair(it.key, it.value) }
-			val newVers = pf.versions!!.map { Pair(it.key, it.value) }
+			val newVers = pf.versions.map { Pair(it.key, it.value) }
 
 			when (ui.showUpdateConfirmationDialog(oldVers, newVers)) {
 				IUserInterface.UpdateConfirmationResult.CANCELLED -> {
@@ -108,7 +107,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 				else -> {}
 			}
 
-			manifestFile.writeText(gson.toJson(multimcManifest))
+			manifestPath.nioPath.writeText(gson.toJson(multimcManifest))
 			Log.info("Successfully updated mmc-pack.json based on version metadata")
 
 			return LauncherStatus.SUCCESSFUL

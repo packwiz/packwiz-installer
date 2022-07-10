@@ -17,7 +17,7 @@ class EfficientBooleanAdapter : TypeAdapter<Boolean?>() {
 	}
 
 	@Throws(IOException::class)
-	override fun read(reader: JsonReader): Boolean? {
+	override fun read(reader: JsonReader): Boolean {
 		if (reader.peek() == JsonToken.NULL) {
 			reader.nextNull()
 			return false

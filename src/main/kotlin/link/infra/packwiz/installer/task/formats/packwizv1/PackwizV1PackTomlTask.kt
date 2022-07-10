@@ -1,19 +1,17 @@
 package link.infra.packwiz.installer.task.formats.packwizv1
 
 import com.google.gson.annotations.SerializedName
-import com.moandjiezana.toml.Toml
 import link.infra.packwiz.installer.metadata.hash.Hash
-import link.infra.packwiz.installer.metadata.hash.HashUtils
+import link.infra.packwiz.installer.metadata.hash.HashFormat
 import link.infra.packwiz.installer.target.path.PackwizPath
 import link.infra.packwiz.installer.task.CacheKey
 import link.infra.packwiz.installer.task.Task
 import link.infra.packwiz.installer.task.TaskCombinedResult
 import link.infra.packwiz.installer.task.TaskContext
-import java.io.InputStreamReader
 
-class PackwizV1PackTomlTask(ctx: TaskContext, val path: PackwizPath): Task<PackwizV1PackFile>(ctx) {
+class PackwizV1PackTomlTask(ctx: TaskContext, val path: PackwizPath<*>): Task<PackwizV1PackFile>(ctx) {
 	// TODO: make hierarchically defined by caller? - then changing the pack format type doesn't leave junk in the cache
-	private var cache by ctx.cache[CacheKey<Hash>("packwiz.v1.packtoml.hash", 1)]
+	private var cache by ctx.cache[CacheKey<Hash<*>>("packwiz.v1.packtoml.hash", 1)]
 
 	private class PackFile {
 		var name: String? = null
@@ -22,7 +20,7 @@ class PackwizV1PackTomlTask(ctx: TaskContext, val path: PackwizPath): Task<Packw
 		class IndexFileLoc {
 			var file: String? = null
 			@SerializedName("hash-format")
-			var hashFormat: String? = null
+			var hashFormat: HashFormat<*>? = null
 			var hash: String? = null
 		}
 
@@ -31,14 +29,16 @@ class PackwizV1PackTomlTask(ctx: TaskContext, val path: PackwizPath): Task<Packw
 
 	private val internalResult by lazy {
 		// TODO: query, parse JSON
-		val packFile = Toml().read(InputStreamReader(path.source(ctx.clients).inputStream(), "UTF-8")).to(PackFile::class.java)
+		val packFile = PackFile()
+			//Toml().read(InputStreamReader(path.source(ctx.clients).inputStream(), "UTF-8")).to(PackFile::class.java)
 
-		val resolved = PackwizV1PackFile(packFile.name ?: throw RuntimeException("Name required"), // TODO: better exception handling
+		val hashFormat = (packFile.index?.hashFormat ?: throw RuntimeException("Hash format required"))
+		val resolved = PackwizV1PackFile(
+			packFile.name ?: throw RuntimeException("Name required"), // TODO: better exception handling
 			path.resolve(packFile.index?.file ?: throw RuntimeException("File required")),
-			HashUtils.getHash(packFile.index?.hashFormat ?: throw RuntimeException("Hash format required"),
-				packFile.index?.hash ?: throw RuntimeException("Hash required"))
+			hashFormat.fromString(packFile.index?.hash ?: throw RuntimeException("Hash required"))
 		)
-		val hash = HashUtils.getHash("sha256", "whatever was just read")
+		val hash = hashFormat.fromString("whatever was just read")
 
 		TaskCombinedResult(resolved, wasUpdated(::cache, hash))
 	}

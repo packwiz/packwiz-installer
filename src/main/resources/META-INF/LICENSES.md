@@ -4,19 +4,17 @@ packwiz-installer itself is under the MIT license ([Source](https://github.com/p
 
 - Murmur2Lib: Apache 2.0 ([Source](https://github.com/prasanthj/hasher/blob/master/src/main/java/hasher/Murmur2.java))
   - Copyright 2014 Prasanth Jayachandran
-- Google Gson 2.8.9: Apache 2.0 ([Source](https://github.com/google/gson))
+- Google Gson 2.9.0: Apache 2.0 ([Source](https://github.com/google/gson))
   - Copyright 2008 Google Inc.
-- Okio 3.0.0: Apache 2.0 ([Source](https://github.com/square/okio/))
+- Okio 3.1.0: Apache 2.0 ([Source](https://github.com/square/okio/))
   - Copyright 2013 Square, Inc.
 - Commons CLI 1.5: Apache 2.0 ([Source](http://commons.apache.org/proper/commons-cli/))
 - Jetbrains Annotations 13.0: Apache 2.0 ([Source](https://github.com/JetBrains/java-annotations))
   - Copyright 2000-2016 JetBrains s.r.o.
-- Kotlin Standard Library 1.6.10: Apache 2.0 ([Source](https://github.com/JetBrains/kotlin))
+- Kotlin Standard Library 1.7.10: Apache 2.0 ([Source](https://github.com/JetBrains/kotlin))
   - Copyright 2010-2020 JetBrains s.r.o and respective authors and developers
-- toml4j 0.7.2: MIT ([Source](https://github.com/mwanji/toml4j))
-  - Copyright (c) 2013-2015 Moandji Ezana
-- kotlin-result 1.1.14: ISC ([Source](https://github.com/michaelbull/kotlin-result))
-  - Copyright (c) 2017-2022 Michael Bull (https://www.michael-bull.com)
+- 4koma 1.1.0: MIT ([Source](https://github.com/valderman/4koma))
+  - Copyright (c) 2021 Anton Ekblad
 
 ## Associated notices
 

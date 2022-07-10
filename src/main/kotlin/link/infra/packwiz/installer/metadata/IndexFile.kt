@@ -1,100 +1,97 @@
 package link.infra.packwiz.installer.metadata
 
-import com.google.gson.annotations.SerializedName
-import com.moandjiezana.toml.Toml
+import cc.ekblad.toml.decode
+import cc.ekblad.toml.tomlMapper
 import link.infra.packwiz.installer.metadata.hash.Hash
-import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
-import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
-import link.infra.packwiz.installer.request.HandlerManager.getFileSource
-import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
+import link.infra.packwiz.installer.metadata.hash.HashFormat
+import link.infra.packwiz.installer.target.ClientHolder
+import link.infra.packwiz.installer.target.path.PackwizPath
+import link.infra.packwiz.installer.util.delegateTransitive
 import okio.Source
 import okio.buffer
-import java.io.InputStreamReader
-import java.nio.file.Paths
 
-class IndexFile {
-	@SerializedName("hash-format")
-	var hashFormat: String = "sha-256"
-	var files: MutableList<File> = ArrayList()
-
-	class File {
-		var file: SpaceSafeURI? = null
-		@SerializedName("hash-format")
-		var hashFormat: String? = null
-		var hash: String? = null
-		var alias: SpaceSafeURI? = null
-		var metafile = false
-		var preserve = false
-
-		@Transient
+data class IndexFile(
+	val hashFormat: HashFormat<*>,
+	val files: List<File> = listOf()
+) {
+	data class File(
+		val file: PackwizPath<*>,
+		private val hashFormat: HashFormat<*>? = null,
+		val hash: String,
+		val alias: PackwizPath<*>?,
+		val metafile: Boolean = false,
+		val preserve: Boolean = false,
+	) {
 		var linkedFile: ModFile? = null
-		@Transient
-		var linkedFileURI: SpaceSafeURI? = null
+
+		fun hashFormat(index: IndexFile) = hashFormat ?: index.hashFormat
+		@Throws(Exception::class)
+		fun getHashObj(index: IndexFile): Hash<*> {
+			// TODO: more specific exceptions?
+			return hashFormat(index).fromString(hash)
+		}
 
 		@Throws(Exception::class)
-		fun downloadMeta(parentIndexFile: IndexFile, indexUri: SpaceSafeURI?) {
+		fun downloadMeta(index: IndexFile, clientHolder: ClientHolder) {
 			if (!metafile) {
 				return
 			}
-			if (hashFormat?.length ?: 0 == 0) {
-				hashFormat = parentIndexFile.hashFormat
-			}
-			// TODO: throw a proper exception instead of allowing NPE?
-			val fileHash = getHash(hashFormat!!, hash!!)
-			linkedFileURI = getNewLoc(indexUri, file)
-			val src = getFileSource(linkedFileURI!!)
-			val fileStream = getHasher(hashFormat!!).getHashingSource(src)
-			linkedFile = Toml().read(InputStreamReader(fileStream.buffer().inputStream(), "UTF-8")).to(ModFile::class.java)
-			if (!fileStream.hashIsEqual(fileHash)) {
+			val fileHash = getHashObj(index)
+			val src = file.source(clientHolder)
+			val fileStream = hashFormat(index).source(src)
+			linkedFile = ModFile.mapper(file).decode<ModFile>(fileStream.buffer().inputStream())
+			if (fileHash != fileStream.hash) {
+				// TODO: propagate details about hash, and show better error!
 				throw Exception("Invalid mod file hash")
 			}
 		}
 
 		@Throws(Exception::class)
-		fun getSource(indexUri: SpaceSafeURI?): Source {
+		fun getSource(clientHolder: ClientHolder): Source {
 			return if (metafile) {
 				if (linkedFile == null) {
 					throw Exception("Linked file doesn't exist!")
 				}
-				linkedFile!!.getSource(linkedFileURI)
+				linkedFile!!.getSource(clientHolder)
 			} else {
-				val newLoc = getNewLoc(indexUri, file) ?: throw Exception("Index file URI is invalid")
-				getFileSource(newLoc)
+				file.source(clientHolder)
 			}
 		}
 
-		@Throws(Exception::class)
-		fun getHashObj(): Hash {
-			if (hash == null) { // TODO: should these be more specific exceptions (e.g. IndexFileException?!)
-				throw Exception("Index file doesn't have a hash")
-			}
-			if (hashFormat == null) {
-				throw Exception("Index file doesn't have a hash format")
-			}
-			return getHash(hashFormat!!, hash!!)
-		}
-
-		// TODO: throw some kind of exception?
 		val name: String
 			get() {
 				if (metafile) {
-					return linkedFile?.name ?: linkedFile?.filename ?:
-					file?.run { Paths.get(path ?: return "Invalid file").fileName.toString() } ?: "Invalid file"
+					return linkedFile?.name ?: file.filename
 				}
-				return file?.run { Paths.get(path ?: return "Invalid file").fileName.toString() } ?: "Invalid file"
+				return file.filename
 			}
 
-		// TODO: URIs are bad
-		val destURI: SpaceSafeURI?
+		val destURI: PackwizPath<*>
 			get() {
 				if (alias != null) {
 					return alias
 				}
-				return if (metafile && linkedFile != null) {
-					linkedFile?.filename?.let { file?.resolve(it) }
+				return if (metafile) {
+					linkedFile!!.filename
 				} else {
 					file
 				}
 			}
+
+		companion object {
+			fun mapper(base: PackwizPath<*>) = tomlMapper {
+				mapping<File>("hash-format" to "hashFormat")
+				delegateTransitive<HashFormat<*>>(HashFormat.mapper())
+				delegateTransitive<PackwizPath<*>>(PackwizPath.mapperRelativeTo(base))
+			}
+		}
+	}
+
+	companion object {
+		fun mapper(base: PackwizPath<*>) = tomlMapper {
+			mapping<IndexFile>("hash-format" to "hashFormat")
+			delegateTransitive<HashFormat<*>>(HashFormat.mapper())
+			delegateTransitive<File>(File.mapper(base))
+		}
 	}
 }

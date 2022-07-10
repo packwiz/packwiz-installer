@@ -4,15 +4,18 @@ import com.google.gson.Gson
 import com.google.gson.JsonIOException
 import com.google.gson.JsonSyntaxException
 import link.infra.packwiz.installer.metadata.IndexFile
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.target.ClientHolder
+import link.infra.packwiz.installer.target.path.HttpUrlPath
+import link.infra.packwiz.installer.target.path.PackwizFilePath
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.internal.closeQuietly
 import okio.ByteString.Companion.decodeBase64
 import java.nio.charset.StandardCharsets
+import kotlin.io.path.absolute
 
 private class GetFilesRequest(val fileIds: List<Int>)
 private class GetModsRequest(val modIds: List<Int>)
@@ -21,7 +24,7 @@ private class GetFilesResponse {
 	class CfFile {
 		var id = 0
 		var modId = 0
-		var downloadUrl: SpaceSafeURI? = null
+		var downloadUrl: String? = null
 	}
 	val data = mutableListOf<CfFile>()
 }
@@ -43,25 +46,17 @@ private const val APIServer = "api.curseforge.com"
 private val APIKey = "JDJhJDEwJHNBWVhqblU1N0EzSmpzcmJYM3JVdk92UWk2NHBLS3BnQ2VpbGc1TUM1UGNKL0RYTmlGWWxh".decodeBase64()!!
 	.string(StandardCharsets.UTF_8)
 
-private val clientHolder = ClientHolder()
-
-// TODO: switch to PackwizPath stuff and OkHttp in old code
-
 @Throws(JsonSyntaxException::class, JsonIOException::class)
-fun resolveCfMetadata(mods: List<IndexFile.File>): List<ExceptionDetails> {
+fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, clientHolder: ClientHolder): List<ExceptionDetails> {
 	val failures = mutableListOf<ExceptionDetails>()
 	val fileIdMap = mutableMapOf<Int, IndexFile.File>()
 
 	for (mod in mods) {
-		if (mod.linkedFile!!.update == null) {
-			failures.add(ExceptionDetails(mod.linkedFile!!.name ?: mod.linkedFile!!.filename!!, Exception("Failed to resolve CurseForge metadata: no update section")))
+		if (!mod.linkedFile!!.update.contains("curseforge")) {
+			failures.add(ExceptionDetails(mod.linkedFile!!.name, Exception("Failed to resolve CurseForge metadata: no CurseForge update section")))
 			continue
 		}
-		if (!mod.linkedFile!!.update!!.contains("curseforge")) {
-			failures.add(ExceptionDetails(mod.linkedFile!!.name ?: mod.linkedFile!!.filename!!, Exception("Failed to resolve CurseForge metadata: no CurseForge update section")))
-			continue
-		}
-		fileIdMap[(mod.linkedFile!!.update!!["curseforge"] as CurseForgeUpdateData).fileId] = mod
+		fileIdMap[(mod.linkedFile!!.update["curseforge"] as CurseForgeUpdateData).fileId] = mod
 	}
 
 	val reqData = GetFilesRequest(fileIdMap.keys.toList())
@@ -93,7 +88,13 @@ fun resolveCfMetadata(mods: List<IndexFile.File>): List<ExceptionDetails> {
 			manualDownloadMods[file.modId] = Pair(fileIdMap[file.id]!!, file.id)
 			continue
 		}
-		fileIdMap[file.id]!!.linkedFile!!.resolvedUpdateData["curseforge"] = file.downloadUrl!!
+		try {
+			fileIdMap[file.id]!!.linkedFile!!.resolvedUpdateData["curseforge"] =
+				HttpUrlPath(file.downloadUrl!!.toHttpUrl())
+		} catch (e: IllegalArgumentException) {
+			failures.add(ExceptionDetails(file.id.toString(),
+				Exception("Failed to parse URL: ${file.downloadUrl} for ID ${file.id}, Project ID ${file.modId}", e)))
+		}
 	}
 
 	if (manualDownloadMods.isNotEmpty()) {
@@ -124,7 +125,7 @@ fun resolveCfMetadata(mods: List<IndexFile.File>): List<ExceptionDetails> {
 
 			val modFile = manualDownloadMods[mod.id]!!
 			failures.add(ExceptionDetails(mod.name, Exception("This mod is excluded from the CurseForge API and must be downloaded manually.\n" +
-				"Please go to ${mod.links?.websiteUrl}/files/${modFile.second} and save this file to ${modFile.first.destURI}")))
+				"Please go to ${mod.links?.websiteUrl}/files/${modFile.second} and save this file to ${modFile.first.destURI.rebase(packFolder).nioPath.absolute()}")))
 		}
 	}
 

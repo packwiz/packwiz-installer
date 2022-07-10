@@ -11,8 +11,11 @@ import kotlin.system.exitProcess
 class CLIHandler : IUserInterface {
 	@Volatile
 	override var optionsButtonPressed = false
+	// TODO: treat ctrl+c as cancel?
 	@Volatile
 	override var cancelButtonPressed = false
+	@Volatile
+	override var cancelCallback: (() -> Unit)? = null
 	@Volatile
 	override var firstInstall = false
 

@@ -1,31 +1,33 @@
 package link.infra.packwiz.installer
 
+import cc.ekblad.toml.decode
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonIOException
 import com.google.gson.JsonSyntaxException
-import com.moandjiezana.toml.Toml
 import link.infra.packwiz.installer.DownloadTask.Companion.createTasksFromIndex
+import link.infra.packwiz.installer.metadata.DownloadMode
 import link.infra.packwiz.installer.metadata.IndexFile
 import link.infra.packwiz.installer.metadata.ManifestFile
 import link.infra.packwiz.installer.metadata.PackFile
-import link.infra.packwiz.installer.metadata.SpaceSafeURI
 import link.infra.packwiz.installer.metadata.curseforge.resolveCfMetadata
 import link.infra.packwiz.installer.metadata.hash.Hash
-import link.infra.packwiz.installer.metadata.hash.HashUtils.getHash
-import link.infra.packwiz.installer.metadata.hash.HashUtils.getHasher
-import link.infra.packwiz.installer.request.HandlerManager.getFileSource
-import link.infra.packwiz.installer.request.HandlerManager.getNewLoc
+import link.infra.packwiz.installer.metadata.hash.HashFormat
+import link.infra.packwiz.installer.request.RequestException
+import link.infra.packwiz.installer.target.ClientHolder
 import link.infra.packwiz.installer.target.Side
+import link.infra.packwiz.installer.target.path.PackwizFilePath
+import link.infra.packwiz.installer.target.path.PackwizPath
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.CancellationResult
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
-import link.infra.packwiz.installer.util.ifletOrErr
 import okio.buffer
-import java.io.*
+import java.io.FileWriter
+import java.io.IOException
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.nio.file.Paths
 import java.util.concurrent.CompletionService
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorCompletionService
@@ -42,29 +44,32 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	}
 
 	data class Options(
-		val downloadURI: SpaceSafeURI,
-		val manifestFile: String,
-		val packFolder: String,
-		val multimcFolder: String,
+		val packFile: PackwizPath<*>,
+		val manifestFile: PackwizFilePath,
+		val packFolder: PackwizFilePath,
+		val multimcFolder: PackwizFilePath,
 		val side: Side
-	) {
-		// Horrible workaround for default params not working cleanly with nullable values
-		companion object {
-			fun construct(downloadURI: SpaceSafeURI, manifestFile: String?, packFolder: String?, multimcFolder: String?, side: Side?) =
-				Options(downloadURI, manifestFile ?: "packwiz.json", packFolder ?: ".", multimcFolder ?: "..", side ?: Side.CLIENT)
+	)
+
+	// TODO: make this return a value based on results?
+	private fun start() {
+		val clientHolder = ClientHolder()
+		ui.cancelCallback = {
+			clientHolder.close()
 		}
 
-	}
-
-	private fun start() {
-		checkOptions()
-
 		ui.submitProgress(InstallProgress("Loading manifest file..."))
-		val gson = GsonBuilder().registerTypeAdapter(Hash::class.java, Hash.TypeHandler()).create()
+		val gson = GsonBuilder()
+			.registerTypeAdapter(Hash::class.java, Hash.TypeHandler())
+			.registerTypeAdapter(PackwizFilePath::class.java, PackwizPath.adapterRelativeTo(opts.packFolder))
+			.enableComplexMapKeySerialization()
+			.create()
 		val manifest = try {
-			gson.fromJson(FileReader(Paths.get(opts.packFolder, opts.manifestFile).toString()),
-					ManifestFile::class.java)
-		} catch (e: FileNotFoundException) {
+			// TODO: kotlinx.serialisation?
+			InputStreamReader(opts.manifestFile.source(clientHolder).inputStream(), StandardCharsets.UTF_8).use { reader ->
+				gson.fromJson(reader, ManifestFile::class.java)
+			}
+		} catch (e: RequestException.Response.File.FileNotFound) {
 			ui.firstInstall = true
 			ManifestFile()
 		} catch (e: JsonSyntaxException) {
@@ -80,14 +85,15 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		ui.submitProgress(InstallProgress("Loading pack file..."))
 		val packFileSource = try {
-			val src = getFileSource(opts.downloadURI)
-			getHasher("sha256").getHashingSource(src)
+			val src = opts.packFile.source(clientHolder)
+			HashFormat.SHA256.source(src)
 		} catch (e: Exception) {
+			// TODO: ensure suppressed/caused exceptions are shown?
 			ui.showErrorAndExit("Failed to download pack.toml", e)
 		}
 		val pf = packFileSource.buffer().use {
 			try {
-				Toml().read(InputStreamReader(it.inputStream(), "UTF-8")).to(PackFile::class.java)
+				PackFile.mapper(opts.packFile).decode<PackFile>(it.inputStream())
 			} catch (e: IllegalStateException) {
 				ui.showErrorAndExit("Failed to parse pack.toml", e)
 			}
@@ -122,7 +128,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		ui.submitProgress(InstallProgress("Checking local files..."))
 
 		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
-		val invalidatedUris: MutableList<SpaceSafeURI> = ArrayList()
+		val invalidatedUris: MutableList<PackwizFilePath> = ArrayList()
 		for ((fileUri, file) in manifest.cachedFiles) {
 			// ignore onlyOtherSide files
 			if (file.onlyOtherSide) {
@@ -133,7 +139,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			// if isn't optional, or is optional but optionValue == true
 			if (!file.isOptional || file.optionValue) {
 				if (file.cachedLocation != null) {
-					if (!Paths.get(opts.packFolder, file.cachedLocation).toFile().exists()) {
+					if (!file.cachedLocation!!.nioPath.toFile().exists()) {
 						invalid = true
 					}
 				} else {
@@ -142,12 +148,12 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				}
 			}
 			if (invalid) {
-				Log.info("File $fileUri invalidated, marked for redownloading")
+				Log.info("File ${fileUri.filename} invalidated, marked for redownloading")
 				invalidatedUris.add(fileUri)
 			}
 		}
 
-		if (manifest.packFileHash?.let { packFileSource.hashIsEqual(it) } == true && invalidatedUris.isEmpty()) {
+		if (manifest.packFileHash?.let { it == packFileSource.hash } == true && invalidatedUris.isEmpty()) {
 			// todo: --force?
 			ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
 			if (manifest.cachedFiles.any { it.value.isOptional }) {
@@ -165,20 +171,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 		try {
-			// TODO: switch to OkHttp for better redirect handling
-			ui.ifletOrErr(pf.index, "No index file found, or the pack file is empty; note that Java doesn't automatically follow redirects from HTTP to HTTPS (and may cause this error)") { index ->
-				ui.ifletOrErr(index.hashFormat, index.hash, "Pack has no hash or hashFormat for index") { hashFormat, hash ->
-					ui.ifletOrErr(getNewLoc(opts.downloadURI, index.file), "Pack has invalid index file: " + index.file) { newLoc ->
-						processIndex(
-							newLoc,
-							getHash(hashFormat, hash),
-							hashFormat,
-							manifest,
-							invalidatedUris
-						)
-					}
-				}
-			}
+			processIndex(
+				pf.index.file,
+				pf.index.hashFormat.fromString(pf.index.hash),
+				pf.index.hashFormat,
+				manifest,
+				invalidatedUris,
+				clientHolder
+			)
 		} catch (e1: Exception) {
 			ui.showErrorAndExit("Failed to process index file", e1)
 		}
@@ -196,18 +196,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		manifest.cachedSide = opts.side
 		try {
-			FileWriter(Paths.get(opts.packFolder, opts.manifestFile).toString()).use { writer -> gson.toJson(manifest, writer) }
+			FileWriter(opts.manifestFile.nioPath.toFile()).use { writer -> gson.toJson(manifest, writer) }
 		} catch (e: IOException) {
 			ui.showErrorAndExit("Failed to save local manifest file", e)
 		}
 	}
 
-	private fun checkOptions() {
-		// TODO: implement
-	}
-
-	private fun processIndex(indexUri: SpaceSafeURI, indexHash: Hash, hashFormat: String, manifest: ManifestFile, invalidatedUris: List<SpaceSafeURI>) {
-		if (manifest.indexFileHash == indexHash && invalidatedUris.isEmpty()) {
+	private fun processIndex(indexUri: PackwizPath<*>, indexHash: Hash<*>, hashFormat: HashFormat<*>, manifest: ManifestFile, invalidatedFiles: List<PackwizFilePath>, clientHolder: ClientHolder) {
+		if (manifest.indexFileHash == indexHash && invalidatedFiles.isEmpty()) {
 			ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
 			if (manifest.cachedFiles.any { it.value.isOptional }) {
 				ui.awaitOptionalButton(false)
@@ -223,18 +219,18 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		manifest.indexFileHash = indexHash
 
 		val indexFileSource = try {
-			val src = getFileSource(indexUri)
-			getHasher(hashFormat).getHashingSource(src)
+			val src = indexUri.source(clientHolder)
+			hashFormat.source(src)
 		} catch (e: Exception) {
 			ui.showErrorAndExit("Failed to download index file", e)
 		}
 
 		val indexFile = try {
-			Toml().read(InputStreamReader(indexFileSource.buffer().inputStream(), "UTF-8")).to(IndexFile::class.java)
+			IndexFile.mapper(indexUri).decode<IndexFile>(indexFileSource.buffer().inputStream())
 		} catch (e: IllegalStateException) {
 			ui.showErrorAndExit("Failed to parse index file", e)
 		}
-		if (!indexFileSource.hashIsEqual(indexHash)) {
+		if (indexHash != indexFileSource.hash) {
 			ui.showErrorAndExit("Your index file hash is invalid! The pack developer should packwiz refresh on the pack again")
 		}
 
@@ -245,7 +241,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		ui.submitProgress(InstallProgress("Checking local files..."))
 		// TODO: use kotlin filtering/FP rather than an iterator?
-		val it: MutableIterator<Map.Entry<SpaceSafeURI, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
+		val it: MutableIterator<Map.Entry<PackwizFilePath, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
 		while (it.hasNext()) {
 			val (uri, file) = it.next()
 			if (file.cachedLocation != null) {
@@ -253,7 +249,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				// Delete if option value has been set to false
 				if (file.isOptional && !file.optionValue) {
 					try {
-						Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))
+						Files.deleteIfExists(file.cachedLocation!!.nioPath)
 					} catch (e: IOException) {
 						Log.warn("Failed to delete optional disabled file", e)
 					}
@@ -261,10 +257,10 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					file.cachedLocation = null
 					alreadyDeleted = true
 				}
-				if (indexFile.files.none { it.file == uri }) { // File has been removed from the index
+				if (indexFile.files.none { it.file.rebase(opts.packFolder) == uri }) { // File has been removed from the index
 					if (!alreadyDeleted) {
 						try {
-							Files.deleteIfExists(Paths.get(opts.packFolder, file.cachedLocation))
+							Files.deleteIfExists(file.cachedLocation!!.nioPath)
 						} catch (e: IOException) {
 							Log.warn("Failed to delete file removed from index", e)
 						}
@@ -284,7 +280,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		if (indexFile.files.isEmpty()) {
 			Log.warn("Index is empty!")
 		}
-		val tasks = createTasksFromIndex(indexFile, indexFile.hashFormat, opts.side)
+		val tasks = createTasksFromIndex(indexFile, opts.side)
 		// If the side changes, invalidate EVERYTHING just in case
 		// Might not be needed, but done just to be safe
 		val invalidateAll = opts.side != manifest.cachedSide
@@ -295,10 +291,10 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			// TODO: should linkedfile be checked as well? should this be done in the download section?
 			if (invalidateAll) {
 				f.invalidate()
-			} else if (invalidatedUris.contains(f.metadata.file)) {
+			} else if (invalidatedFiles.contains(f.metadata.file.rebase(opts.packFolder))) {
 				f.invalidate()
 			}
-			val file = manifest.cachedFiles[f.metadata.file]
+			val file = manifest.cachedFiles[f.metadata.file.rebase(opts.packFolder)]
 			// Ensure the file can be reverted later if necessary - the DownloadTask modifies the file so if it fails we need the old version back
 			file?.backup()
 			// If it is null, the DownloadTask will make a new empty cachedFile
@@ -311,7 +307,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 
 		// Let's hope downloadMetadata is a pure function!!!
-		tasks.parallelStream().forEach { f -> f.downloadMetadata(indexFile, indexUri) }
+		tasks.parallelStream().forEach { f -> f.downloadMetadata(clientHolder) }
 
 		val failedTaskDetails = tasks.asSequence().map(DownloadTask::exceptionDetails).filterNotNull().toList()
 		if (failedTaskDetails.isNotEmpty()) {
@@ -361,7 +357,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		ui.disableOptionsButton(optionTasks.isNotEmpty())
 
 		while (true) {
-			when (validateAndResolve(tasks)) {
+			when (validateAndResolve(tasks, clientHolder)) {
 				ResolveResult.RETRY -> {}
 				ResolveResult.QUIT -> return
 				ResolveResult.SUCCESS -> break
@@ -373,7 +369,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val completionService: CompletionService<DownloadTask> = ExecutorCompletionService(threadPool)
 		tasks.forEach { t ->
 			completionService.submit {
-				t.download(opts.packFolder, indexUri)
+				t.download(opts.packFolder, clientHolder)
 				t
 			}
 		}
@@ -390,10 +386,10 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				if (task.failed()) {
 					val oldFile = file.revert
 					if (oldFile != null) {
-						task.metadata.file?.let { uri -> manifest.cachedFiles.putIfAbsent(uri, oldFile) }
+						manifest.cachedFiles.putIfAbsent(task.metadata.file.rebase(opts.packFolder), oldFile)
 					} else { null }
 				} else {
-					task.metadata.file?.let { uri -> manifest.cachedFiles.putIfAbsent(uri, file) }
+					manifest.cachedFiles.putIfAbsent(task.metadata.file.rebase(opts.packFolder), file)
 				}
 			}
 
@@ -406,6 +402,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			ui.submitProgress(InstallProgress(progress, i + 1, tasks.size))
 
 			if (ui.cancelButtonPressed) { // Stop all tasks, don't launch the game (it's in an invalid state!)
+				// TODO: close client holder in more places?
+				clientHolder.close()
 				threadPool.shutdown()
 				cancelled = true
 				return
@@ -432,12 +430,12 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		SUCCESS;
 	}
 
-	private fun validateAndResolve(nonFailedFirstTasks: List<DownloadTask>): ResolveResult {
+	private fun validateAndResolve(nonFailedFirstTasks: List<DownloadTask>, clientHolder: ClientHolder): ResolveResult {
 		ui.submitProgress(InstallProgress("Validating existing files..."))
 
 		// Validate existing files
 		for (downloadTask in nonFailedFirstTasks.filter(DownloadTask::correctSide)) {
-			downloadTask.validateExistingFile(opts.packFolder)
+			downloadTask.validateExistingFile(opts.packFolder, clientHolder)
 		}
 
 		// Resolve CurseForge metadata
@@ -445,10 +443,10 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			.filter(DownloadTask::correctSide)
 			.map { it.metadata }
 			.filter { it.linkedFile != null }
-			.filter { it.linkedFile?.download?.mode == "metadata:curseforge" }.toList()
+			.filter { it.linkedFile!!.download.mode == DownloadMode.CURSEFORGE }.toList()
 		if (cfFiles.isNotEmpty()) {
 			ui.submitProgress(InstallProgress("Resolving CurseForge metadata..."))
-			val resolveFailures = resolveCfMetadata(cfFiles)
+			val resolveFailures = resolveCfMetadata(cfFiles, opts.packFolder, clientHolder)
 			if (resolveFailures.isNotEmpty()) {
 				errorsOccurred = true
 				return when (ui.showExceptions(resolveFailures, cfFiles.size, true)) {

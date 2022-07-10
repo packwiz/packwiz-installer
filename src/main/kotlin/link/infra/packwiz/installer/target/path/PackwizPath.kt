@@ -1,124 +1,126 @@
 package link.infra.packwiz.installer.target.path
 
+import cc.ekblad.toml.model.TomlValue
+import cc.ekblad.toml.tomlMapper
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import link.infra.packwiz.installer.request.RequestException
 import link.infra.packwiz.installer.target.ClientHolder
-import okio.BufferedSink
 import okio.BufferedSource
 
-class PackwizPath(path: String, base: Base) {
-	val path: String
-	val base: Base
+abstract class PackwizPath<T: PackwizPath<T>>(path: String? = null) {
+	protected val path: String?
 
 	init {
-		this.base = base
+		if (path != null) {
+			// Check for NUL bytes
+			if (path.contains('\u0000')) { throw RequestException.Validation.PathContainsNUL(path) }
+			// Normalise separator, to prevent differences between Unix/Windows
+			val pathNorm = path.replace('\\', '/')
+			// Split, create new lists for output
+			val split = pathNorm.split('/')
+			val canonicalised = mutableListOf<String>()
 
-		// Check for NUL bytes
-		if (path.contains('\u0000')) { throw RequestException.Validation.PathContainsNUL(path) }
-		// Normalise separator, to prevent differences between Unix/Windows
-		val pathNorm = path.replace('\\', '/')
-		// Split, create new lists for output
-		val split = pathNorm.split('/')
-		val canonicalised = mutableListOf<String>()
-
-		// Backward pass: collapse ".." components, remove "." components and empty components (except an empty component at the end; indicating a folder)
-		var parentComponentCount = 0
-		var first = true
-		for (component in split.asReversed()) {
-			if (first) {
-				first = false
-				if (component == "") {
-					canonicalised += component
+			// Backward pass: collapse ".." components, remove "." components and empty components (except an empty component at the end; indicating a folder)
+			var parentComponentCount = 0
+			var first = true
+			for (component in split.asReversed()) {
+				if (first) {
+					first = false
+					if (component == "") {
+						canonicalised += component
+					}
 				}
-			}
-			// URL-encoded . is normalised
-			val componentNorm = component.replace("%2e", ".")
-			if (componentNorm == "." || componentNorm == "") {
-				// Do nothing
-			} else if (componentNorm == "..") {
-				parentComponentCount++
-			} else if (parentComponentCount > 0) {
-				parentComponentCount--
-			} else {
-				canonicalised += componentNorm
-				// Don't allow volume letters (allows traversal to the root on Windows)
-				if (componentNorm[0] in 'a'..'z' || componentNorm[0] in 'A'..'Z') {
-					if (componentNorm[1] == ':') {
-						throw RequestException.Validation.PathContainsVolumeLetter(path)
+				// URL-encoded . is normalised
+				val componentNorm = component.replace("%2e", ".")
+				if (componentNorm == "." || componentNorm == "") {
+					// Do nothing
+				} else if (componentNorm == "..") {
+					parentComponentCount++
+				} else if (parentComponentCount > 0) {
+					parentComponentCount--
+				} else {
+					canonicalised += componentNorm
+					// Don't allow volume letters (allows traversal to the root on Windows)
+					if (componentNorm[0] in 'a'..'z' || componentNorm[0] in 'A'..'Z') {
+						if (componentNorm[1] == ':') {
+							throw RequestException.Validation.PathContainsVolumeLetter(path)
+						}
 					}
 				}
 			}
-		}
 
-		// Join path
-		this.path = canonicalised.asReversed().joinToString("/")
+			if (canonicalised.isEmpty()) {
+				this.path = null
+			} else {
+				// Join path
+				this.path = canonicalised.asReversed().joinToString("/")
+			}
+		} else {
+			this.path = null
+		}
 	}
 
-	val folder: Boolean get() = path.endsWith("/")
+	protected abstract fun construct(path: String): T
 
-	fun resolve(path: String): PackwizPath {
+	protected val pathFolder: Boolean? get() = path?.endsWith("/")
+	abstract val folder: Boolean
+	protected val pathFilename: String? get() = path?.split("/")?.last()
+	abstract val filename: String
+
+	fun resolve(path: String): T {
 		return if (path.startsWith('/') || path.startsWith('\\')) {
 			// Absolute (but still relative to base of pack)
-			PackwizPath(path, base)
+			construct(path)
 		} else if (folder) {
 			// File in folder; append
-			PackwizPath(this.path + path, base)
+			construct((this.path ?: "") + path)
 		} else {
 			// File in parent folder; append with parent component
-			PackwizPath(this.path + "/../" + path, base)
+			construct((this.path ?: "") + "/../" + path)
 		}
 	}
+
+	operator fun div(path: String) = resolve(path)
+
+	fun <U: PackwizPath<U>> rebase(path: U) = path.resolve(this.path ?: "")
+
+	val parent: T get() = resolve(if (folder) { ".." } else { "." })
 
 	/**
 	 * Obtain a BufferedSource for this path
 	 * @throws RequestException When resolving the file failed
 	 */
-	fun source(clientHolder: ClientHolder): BufferedSource = base.source(path, clientHolder)
-
-	/**
-	 * Obtain a BufferedSink for this path
-	 * @throws RequestException.Internal.UnsinkableBase When the base of this path does not have a sink
-	 * @throws RequestException When resolving the file failed
-	 */
-	fun sink(clientHolder: ClientHolder): BufferedSink =
-		if (base is SinkableBase) { base.sink(path, clientHolder) } else { throw RequestException.Internal.UnsinkableBase() }
-
-	interface Base {
-		/**
-		 * Resolve the given (canonical) path against the base, and get a BufferedSource for this file.
-		 * @throws RequestException
-		 */
-		fun source(path: String, clientHolder: ClientHolder): BufferedSource
-
-		operator fun div(path: String) = PackwizPath(path, this)
-	}
-
-	interface SinkableBase: Base {
-		/**
-		 * Resolve the given (canonical) path against the base, and get a BufferedSink for this file.
-		 * @throws RequestException
-		 */
-		fun sink(path: String, clientHolder: ClientHolder): BufferedSink
-	}
+	@Throws(RequestException::class)
+	abstract fun source(clientHolder: ClientHolder): BufferedSource
 
 	override fun equals(other: Any?): Boolean {
 		if (this === other) return true
 		if (javaClass != other?.javaClass) return false
 
-		other as PackwizPath
+		other as PackwizPath<*>
 
 		if (path != other.path) return false
-		if (base != other.base) return false
 
 		return true
 	}
 
-	override fun hashCode(): Int {
-		var result = path.hashCode()
-		result = 31 * result + base.hashCode()
-		return result
+	override fun hashCode() = path.hashCode()
+
+	companion object {
+		fun mapperRelativeTo(base: PackwizPath<*>) = tomlMapper {
+			encoder { it: PackwizPath<*> -> TomlValue.String(it.path ?: "") }
+			decoder { it: TomlValue.String -> base.resolve(it.value) }
+		}
+
+		fun <T: PackwizPath<T>> adapterRelativeTo(base: T) = object : TypeAdapter<T>() {
+			override fun write(writer: JsonWriter, value: T?) {
+				writer.value(value?.path)
+			}
+			override fun read(reader: JsonReader) = base.resolve(reader.nextString())
+		}
 	}
 
-	override fun toString(): String {
-		return "base=$base; $path"
-	}
+	override fun toString() = "(Unknown base) $path"
 }
