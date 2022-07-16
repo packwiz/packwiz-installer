@@ -137,6 +137,10 @@ tasks.githubRelease {
 	enabled = project.hasProperty("github.token") && project.findProperty("release") == "true"
 }
 
+tasks.publish {
+	dependsOn(githubRelease)
+}
+
 tasks.compileKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
