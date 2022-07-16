@@ -22,6 +22,15 @@ repositories {
 }
 
 val r8 by configurations.creating
+val shrinkJarOutput by configurations.creating {
+	isCanBeResolved = false
+	isCanBeConsumed = true
+
+	attributes {
+		attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.JAVA_RUNTIME))
+		attribute(Bundling.BUNDLING_ATTRIBUTE, project.objects.named(Bundling::class.java, Bundling.EMBEDDED))
+	}
+}
 
 dependencies {
 	implementation("commons-cli:commons-cli:1.5.0")
@@ -35,7 +44,7 @@ dependencies {
 }
 
 application {
-	mainClassName = "link.infra.packwiz.installer.RequiresBootstrap"
+	mainClass.set("link.infra.packwiz.installer.RequiresBootstrap")
 }
 
 val gitVersion: groovy.lang.Closure<*> by extra
@@ -70,9 +79,11 @@ tasks.shadowJar {
 	exclude("META-INF/NOTICE.txt")
 }
 
-tasks.register<JavaExec>("shrinkJar") {
+val shrinkJar by tasks.registering(JavaExec::class) {
 	val rules = file("src/main/proguard.txt")
-	val r8File = tasks.shadowJar.get().archiveFile.get().asFile.run { resolveSibling(name.removeSuffix(".jar") + "-shrink.jar") }
+	val r8File = base.libsDirectory.file(provider {
+		base.archivesName.get() + "-" + project.version + "-all-shrink.jar"
+	})
 	dependsOn(configurations.named("runtimeClasspath"))
 	inputs.files(tasks.shadowJar, rules)
 	outputs.file(r8File)
@@ -82,7 +93,7 @@ tasks.register<JavaExec>("shrinkJar") {
 	args = mutableListOf(
 		"--release",
 		"--classfile",
-		"--output", r8File.toString(),
+		"--output", r8File.get().toString(),
 		"--pg-conf", rules.toString(),
 		"--lib", System.getProperty("java.home"),
 		*(if (System.getProperty("java.version").startsWith("1.")) {
@@ -93,46 +104,59 @@ tasks.register<JavaExec>("shrinkJar") {
 	)
 }
 
+artifacts {
+	add("shrinkJarOutput", shrinkJar) {
+		classifier = "dist"
+	}
+}
+
 // Used for vscode launch.json
-tasks.register<Copy>("copyJar") {
-	from(tasks.named("shrinkJar"))
+val copyJar by tasks.registering(Copy::class) {
+	from(shrinkJar)
 	rename("packwiz-installer-(.*)\\.jar", "packwiz-installer.jar")
-	into("build/libs/")
-	outputs.file("build/libs/packwiz-installer.jar")
+	into(layout.buildDirectory.dir("dist"))
+	outputs.file(layout.buildDirectory.dir("dist").map { file("packwiz-installer.jar") })
 }
 
-tasks.assemble {
-	dependsOn("shrinkJar")
-	dependsOn("copyJar")
+tasks.build {
+	dependsOn(copyJar)
 }
 
-if (project.hasProperty("github.token")) {
-	githubRelease {
-		owner("comp500")
-		repo("packwiz-installer")
-		tagName("${project.version}")
-		releaseName("Release ${project.version}")
-		draft(true)
-		token(findProperty("github.token") as String? ?: "")
-		releaseAssets(tasks.jar.get().destinationDirectory.file("packwiz-installer.jar").get())
-	}
+githubRelease {
+	owner("comp500")
+	repo("packwiz-installer")
+	tagName("${project.version}")
+	releaseName("Release ${project.version}")
+	draft(true)
+	token(findProperty("github.token") as String?)
+	releaseAssets(copyJar)
+}
 
-	tasks.githubRelease {
-		dependsOn(tasks.build)
-	}
+tasks.githubRelease {
+	dependsOn(copyJar)
+	enabled = project.hasProperty("github.token") && project.findProperty("release") == "true"
 }
 
 tasks.compileKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
-		freeCompilerArgs = listOf("-Xjvm-default=all", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi", "-Xlambdas=indy")
+		freeCompilerArgs = listOf("-Xjvm-default=all", "-Xallow-result-return-type", "-opt-in=kotlin.io.path.ExperimentalPathApi", "-Xlambdas=indy")
 	}
 }
 tasks.compileTestKotlin {
 	kotlinOptions {
 		jvmTarget = "1.8"
-		freeCompilerArgs = listOf("-Xjvm-default=all", "-Xallow-result-return-type", "-Xopt-in=kotlin.io.path.ExperimentalPathApi", "-Xlambdas=indy")
+		freeCompilerArgs = listOf("-Xjvm-default=all", "-Xallow-result-return-type", "-opt-in=kotlin.io.path.ExperimentalPathApi", "-Xlambdas=indy")
 	}
+}
+
+val javaComponent = components["java"] as AdhocComponentWithVariants
+javaComponent.addVariantsFromConfiguration(shrinkJarOutput) {
+	mapToMavenScope("runtime")
+	mapToOptional()
+}
+javaComponent.withVariantsFromConfiguration(configurations["shadowRuntimeElements"]) {
+	skip()
 }
 
 if (project.hasProperty("bunnycdn.token")) {
@@ -147,7 +171,11 @@ if (project.hasProperty("bunnycdn.token")) {
 		}
 		repositories {
 			maven {
-				url = uri("https://storage.bunnycdn.com/comp-maven")
+				url = if (project.findProperty("release") == "true") {
+					uri("https://storage.bunnycdn.com/comp-maven/repository/release")
+				} else {
+					uri("https://storage.bunnycdn.com/comp-maven/repository/snapshot")
+				}
 				credentials(HttpHeaderCredentials::class) {
 					name = "AccessKey"
 					value = findProperty("bunnycdn.token") as String?
