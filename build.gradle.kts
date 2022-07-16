@@ -129,7 +129,7 @@ githubRelease {
 	releaseName("Release ${project.version}")
 	draft(true)
 	token(findProperty("github.token") as String?)
-	releaseAssets(copyJar)
+	releaseAssets(layout.buildDirectory.dir("dist").map { file("packwiz-installer.jar") })
 }
 
 tasks.githubRelease {
