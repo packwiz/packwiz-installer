@@ -130,12 +130,11 @@ githubRelease {
 	draft(true)
 	token(findProperty("github.token") as String?)
 	releaseAssets(layout.buildDirectory.dir("dist").map { it.file("packwiz-installer.jar") }.get())
-	dryRun(project.findProperty("release") != "true")
 }
 
 tasks.githubRelease {
 	dependsOn(copyJar)
-	enabled = project.hasProperty("github.token")
+	enabled = project.hasProperty("github.token") && project.findProperty("release") == "true"
 }
 
 tasks.publish {
