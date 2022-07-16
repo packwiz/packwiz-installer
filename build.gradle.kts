@@ -138,7 +138,7 @@ tasks.githubRelease {
 }
 
 tasks.publish {
-	dependsOn(githubRelease)
+	dependsOn(tasks.githubRelease)
 }
 
 tasks.compileKotlin {
