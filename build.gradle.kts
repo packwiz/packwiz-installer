@@ -115,7 +115,7 @@ val copyJar by tasks.registering(Copy::class) {
 	from(shrinkJar)
 	rename("packwiz-installer-(.*)\\.jar", "packwiz-installer.jar")
 	into(layout.buildDirectory.dir("dist"))
-	outputs.file(layout.buildDirectory.dir("dist").map { file("packwiz-installer.jar") })
+	outputs.file(layout.buildDirectory.dir("dist").map { it.file("packwiz-installer.jar") })
 }
 
 tasks.build {
@@ -129,12 +129,13 @@ githubRelease {
 	releaseName("Release ${project.version}")
 	draft(true)
 	token(findProperty("github.token") as String?)
-	releaseAssets(layout.buildDirectory.dir("dist").map { file("packwiz-installer.jar") })
+	releaseAssets(layout.buildDirectory.dir("dist").map { it.file("packwiz-installer.jar") }.get())
+	dryRun(project.findProperty("release") != "true")
 }
 
 tasks.githubRelease {
 	dependsOn(copyJar)
-	enabled = project.hasProperty("github.token") && project.findProperty("release") == "true"
+	enabled = project.hasProperty("github.token")
 }
 
 tasks.publish {
