@@ -22,7 +22,7 @@ repositories {
 }
 
 val r8 by configurations.creating
-val shrinkJarOutput by configurations.creating {
+val distJarOutput by configurations.creating {
 	isCanBeResolved = false
 	isCanBeConsumed = true
 
@@ -104,15 +104,27 @@ val shrinkJar by tasks.registering(JavaExec::class) {
 	)
 }
 
+// MANIFEST.MF must be one of the first 2 entries in the zip for JarInputStream to see it
+// Gradle's JAR creation handles this whereas R8 doesn't, so the dist JAR is repacked
+val distJar by tasks.registering(Jar::class) {
+	from(shrinkJar.map { zipTree(it.outputs.files.singleFile) })
+	archiveClassifier.set("all-repacked")
+	manifest {
+		from(shrinkJar.map { zipTree(it.outputs.files.singleFile).matching {
+			include("META-INF/MANIFEST.MF")
+		}.singleFile })
+	}
+}
+
 artifacts {
-	add("shrinkJarOutput", shrinkJar) {
+	add("distJarOutput", distJar) {
 		classifier = "dist"
 	}
 }
 
 // Used for vscode launch.json
 val copyJar by tasks.registering(Copy::class) {
-	from(shrinkJar)
+	from(distJar)
 	rename("packwiz-installer-(.*)\\.jar", "packwiz-installer.jar")
 	into(layout.buildDirectory.dir("dist"))
 	outputs.file(layout.buildDirectory.dir("dist").map { it.file("packwiz-installer.jar") })
@@ -155,7 +167,7 @@ tasks.compileTestKotlin {
 }
 
 val javaComponent = components["java"] as AdhocComponentWithVariants
-javaComponent.addVariantsFromConfiguration(shrinkJarOutput) {
+javaComponent.addVariantsFromConfiguration(distJarOutput) {
 	mapToMavenScope("runtime")
 	mapToOptional()
 }
