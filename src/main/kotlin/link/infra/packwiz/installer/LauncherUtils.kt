@@ -50,7 +50,20 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 			"net.minecraftforge" to "forge",
 			"net.fabricmc.fabric-loader" to "fabric",
 			"org.quiltmc.quilt-loader" to "quilt",
-			"com.mumfrey.liteloader" to "liteloader")
+			"com.mumfrey.liteloader" to "liteloader"
+		)
+		// MultiMC requires components to be sorted; this is defined in the MultiMC meta repo, but they seem to
+		// be the same for every version so they are just used directly here
+		val componentOrders = mapOf(
+			"net.minecraft" to -2,
+			"org.lwjgl" to -1,
+			"org.lwjgl3" to -1,
+			"net.minecraftforge" to 5,
+			"net.fabricmc.fabric-loader" to 10,
+			"org.quiltmc.quilt-loader" to 10,
+			"com.mumfrey.liteloader" to 10,
+			"net.fabricmc.intermediary" to 11
+		)
 		val modLoadersClasses = modLoaders.entries.associate{(k,v)-> v to k}
 		val loaderVersionsFound = HashMap<String, String?>()
 		val outdatedLoaders = mutableSetOf<String>()
@@ -92,6 +105,15 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 		}
 
 		if (manifestModified) {
+			// Sort manifest by component order
+			val sortedComponents = components.sortedWith(nullsLast(compareBy {
+				if (it.isJsonObject) {
+					componentOrders[it.asJsonObject["uid"]?.asString]
+				} else { null }
+			}))
+			components.removeAll { true }
+			sortedComponents.forEach { components.add(it) }
+
 			// The manifest has been modified, so before saving it we'll ask the user
 			// if they wanna update it, continue without updating it, or exit
 			val oldVers = loaderVersionsFound.map { Pair(it.key, it.value) }
