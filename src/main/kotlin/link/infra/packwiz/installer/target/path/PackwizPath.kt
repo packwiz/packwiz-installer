@@ -43,9 +43,11 @@ abstract class PackwizPath<T: PackwizPath<T>>(path: String? = null) {
 				} else {
 					canonicalised += componentNorm
 					// Don't allow volume letters (allows traversal to the root on Windows)
-					if (componentNorm[0] in 'a'..'z' || componentNorm[0] in 'A'..'Z') {
-						if (componentNorm[1] == ':') {
-							throw RequestException.Validation.PathContainsVolumeLetter(path)
+					if (componentNorm.length == 2) {
+						if (componentNorm[0] in 'a'..'z' || componentNorm[0] in 'A'..'Z') {
+							if (componentNorm[1] == ':') {
+								throw RequestException.Validation.PathContainsVolumeLetter(path)
+							}
 						}
 					}
 				}
