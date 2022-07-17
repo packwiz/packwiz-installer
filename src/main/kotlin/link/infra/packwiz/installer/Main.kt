@@ -101,7 +101,7 @@ class Main(args: Array<String>) {
 			cmd.getOptionValue("multimc-folder")?.let{ PackwizFilePath(it.toPath()) } ?: PackwizFilePath("..".toPath())
 		}
 		val manifestFile = ui.wrap("Invalid manifest file path") {
-			packFolder / (cmd.getOptionValue("meta-file") ?: "manifest.json")
+			packFolder / (cmd.getOptionValue("meta-file") ?: "packwiz.json")
 		}
 
 		// Start update process!
