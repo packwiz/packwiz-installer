@@ -21,7 +21,14 @@ data class Hash<T>(val type: HashFormat<T>, val value: T) {
 
 		object UInt: Encoding<kotlin.UInt> {
 			override fun encodeToString(value: kotlin.UInt) = value.toString()
-			override fun decodeFromString(str: String) = str.toUInt()
+			override fun decodeFromString(str: String) =
+				try {
+					str.toUInt()
+				} catch (e: NumberFormatException) {
+					// Old packwiz.json values are signed; if they are negative they should be parsed as signed integers
+					// and reinterpreted as unsigned integers
+					str.toInt().toUInt()
+				}
 		}
 	}
 
