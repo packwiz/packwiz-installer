@@ -25,7 +25,7 @@ interface IUserInterface {
 
 	fun showUpdateConfirmationDialog(oldVersions: List<Pair<String, String?>>, newVersions: List<Pair<String, String?>>): UpdateConfirmationResult = UpdateConfirmationResult.CANCELLED
 
-	fun awaitOptionalButton(showCancel: Boolean)
+	fun awaitOptionalButton(showCancel: Boolean, timeout: Long)
 
 	enum class ExceptionListResult {
 		CONTINUE, CANCEL, IGNORE
