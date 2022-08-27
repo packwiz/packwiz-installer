@@ -339,7 +339,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			if (!ui.optionsButtonPressed) {
 				// TODO: this is so ugly
 				ui.submitProgress(InstallProgress("Reconfigure optional mods?", 0,1))
-				ui.awaitOptionalButton(true, -1) // TODO: Should user interactivity be forced here?
+				ui.awaitOptionalButton(true, opts.timeout)
 				if (ui.cancelButtonPressed) {
 					showCancellationDialog()
 					return
