@@ -135,6 +135,12 @@ class Main(args: Array<String>) {
 			options.addOption("g", "no-gui", false, "Don't display a GUI to show update progress")
 			options.addOption("h", "help", false, "Display this message") // Implemented in packwiz-installer-bootstrap!
 		}
+
+		@JvmStatic
+		fun main(args: Array<String>) {
+			Log.info("packwiz-installer was started without packwiz-installer-bootstrap. Use the bootstrapper for automatic updates! (Disregard this message if you have your own update mechanism)")
+			Main(args)
+		}
 	}
 
 	// Actual main() is in RequiresBootstrap!
