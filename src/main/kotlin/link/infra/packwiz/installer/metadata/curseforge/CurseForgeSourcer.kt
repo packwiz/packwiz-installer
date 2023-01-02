@@ -97,6 +97,16 @@ fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, c
 		}
 	}
 
+	// Some file types don't show up in the API at all! (e.g. shaderpacks)
+	// Add unresolved files to manualDownloadMods
+	for ((fileId, file) in fileIdMap) {
+		if (file.linkedFile != null) {
+			if (file.linkedFile!!.resolvedUpdateData["curseforge"] == null) {
+				manualDownloadMods[(file.linkedFile!!.update["curseforge"] as CurseForgeUpdateData).projectId] = Pair(file, fileId)
+			}
+		}
+	}
+
 	if (manualDownloadMods.isNotEmpty()) {
 		val reqModsData = GetModsRequest(manualDownloadMods.keys.toList())
 		val reqMods = Request.Builder()
