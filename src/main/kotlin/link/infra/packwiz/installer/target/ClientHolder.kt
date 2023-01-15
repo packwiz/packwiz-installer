@@ -8,9 +8,12 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 class ClientHolder {
+	// Tries 10s timeouts (default), then 15s timeouts, then 60s timeouts
+	private val retryTimes = arrayOf(15, 60)
+
 	// TODO: a button to increase timeouts temporarily when retrying? manual retry button?
 	val okHttpClient by lazy { OkHttpClient.Builder()
-		// Retry requests up to 3 times, increasing the timeouts slightly if it failed
+		// Retry requests according to retryTimes list
 		.addInterceptor {
 			val req = it.request()
 
@@ -24,20 +27,20 @@ class ClientHolder {
 			}
 
 			var tryCount = 0
-			while (res == null && tryCount < 3) {
-				tryCount++
-
-				Log.info("OkHttp connection to ${req.url} timed out; retrying... ($tryCount/3)")
+			while (res == null && tryCount < retryTimes.size) {
+				Log.info("OkHttp connection to ${req.url} timed out; retrying... (${tryCount + 1}/${retryTimes.size})")
 
 				val longerTimeoutChain = it
-					.withConnectTimeout(10 * tryCount, TimeUnit.SECONDS)
-					.withReadTimeout(10 * tryCount, TimeUnit.SECONDS)
-					.withWriteTimeout(10 * tryCount, TimeUnit.SECONDS)
+					.withConnectTimeout(retryTimes[tryCount], TimeUnit.SECONDS)
+					.withReadTimeout(retryTimes[tryCount], TimeUnit.SECONDS)
+					.withWriteTimeout(retryTimes[tryCount], TimeUnit.SECONDS)
 				try {
 					res = longerTimeoutChain.proceed(req)
 				} catch (e: SocketTimeoutException) {
 					lastException = e
 				}
+
+				tryCount++
 			}
 
 			res ?: throw lastException!!
