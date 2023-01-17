@@ -4,42 +4,29 @@ import cc.ekblad.toml.model.TomlValue
 import cc.ekblad.toml.tomlMapper
 import com.google.gson.annotations.SerializedName
 
-enum class Side {
+enum class Side(sideName: String) {
 	@SerializedName("client")
 	CLIENT("client"),
 	@SerializedName("server")
 	SERVER("server"),
 	@SerializedName("both")
 	@Suppress("unused")
-	BOTH("both", arrayOf(CLIENT, SERVER));
+	BOTH("both") {
+		override fun hasSide(tSide: Side): Boolean {
+			return true
+		}
+	};
 
 	private val sideName: String
-	private val depSides: Array<Side>?
 
-	constructor(sideName: String) {
+	init {
 		this.sideName = sideName.lowercase()
-		depSides = null
-	}
-
-	constructor(sideName: String, depSides: Array<Side>) {
-		this.sideName = sideName.lowercase()
-		this.depSides = depSides
 	}
 
 	override fun toString() = sideName
 
-	fun hasSide(tSide: Side): Boolean {
-		if (this == tSide) {
-			return true
-		}
-		if (depSides != null) {
-			for (depSide in depSides) {
-				if (depSide == tSide) {
-					return true
-				}
-			}
-		}
-		return false
+	open fun hasSide(tSide: Side): Boolean {
+		return this == tSide || tSide == BOTH
 	}
 
 	companion object {
