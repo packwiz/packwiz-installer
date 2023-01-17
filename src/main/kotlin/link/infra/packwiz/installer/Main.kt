@@ -104,7 +104,7 @@ class Main(args: Array<String>) {
 			packFolder / (cmd.getOptionValue("meta-file") ?: "packwiz.json")
 		}
 		val timeout = ui.wrap("Invalid timeout value") {
-			cmd.getOptionValue("timeout")?.toLong() ?: -1
+			cmd.getOptionValue("timeout")?.toLong() ?: 10
 		}
 
 		// Start update process!
@@ -126,7 +126,7 @@ class Main(args: Array<String>) {
 			options.addOption(null, "pack-folder", true, "Folder to install the pack to (defaults to the JAR directory)")
 			options.addOption(null, "multimc-folder", true, "The MultiMC pack folder (defaults to the parent of the pack directory)")
 			options.addOption(null, "meta-file", true, "JSON file to store pack metadata, relative to the pack folder (defaults to packwiz.json)")
-			options.addOption("t", "timeout", true, "Seconds to wait before automatically launching if there is no update (defaults to -1, or disabled)")
+			options.addOption("t", "timeout", true, "Seconds to wait before automatically launching when asking about optional mods (defaults to 10)")
 		}
 
 		// TODO: link these somehow so they're only defined once?
