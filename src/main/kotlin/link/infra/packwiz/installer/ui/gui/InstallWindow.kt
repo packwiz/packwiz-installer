@@ -121,4 +121,8 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 		}
 		buttonsPanel.revalidate()
 	}
+
+	fun timeoutOk(remaining: Long) {
+		btnOk.text = "Continue ($remaining)"
+	}
 }

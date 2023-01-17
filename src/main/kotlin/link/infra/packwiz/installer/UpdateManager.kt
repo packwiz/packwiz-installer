@@ -48,7 +48,8 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val manifestFile: PackwizFilePath,
 		val packFolder: PackwizFilePath,
 		val multimcFolder: PackwizFilePath,
-		val side: Side
+		val side: Side,
+		val timeout: Long,
 	)
 
 	// TODO: make this return a value based on results?
@@ -157,7 +158,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			// todo: --force?
 			ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
 			if (manifest.cachedFiles.any { it.value.isOptional }) {
-				ui.awaitOptionalButton(false)
+				ui.awaitOptionalButton(false, opts.timeout)
 			}
 			if (!ui.optionsButtonPressed) {
 				return
@@ -206,7 +207,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		if (manifest.indexFileHash == indexHash && invalidatedFiles.isEmpty()) {
 			ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
 			if (manifest.cachedFiles.any { it.value.isOptional }) {
-				ui.awaitOptionalButton(false)
+				ui.awaitOptionalButton(false, opts.timeout)
 			}
 			if (!ui.optionsButtonPressed) {
 				return
@@ -338,7 +339,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			if (!ui.optionsButtonPressed) {
 				// TODO: this is so ugly
 				ui.submitProgress(InstallProgress("Reconfigure optional mods?", 0,1))
-				ui.awaitOptionalButton(true)
+				ui.awaitOptionalButton(true, opts.timeout)
 				if (ui.cancelButtonPressed) {
 					showCancellationDialog()
 					return

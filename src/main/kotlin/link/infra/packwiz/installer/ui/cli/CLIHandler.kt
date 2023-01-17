@@ -63,7 +63,7 @@ class CLIHandler : IUserInterface {
 		return ExceptionListResult.CANCEL
 	}
 
-	override fun awaitOptionalButton(showCancel: Boolean) {
+	override fun awaitOptionalButton(showCancel: Boolean, timeout: Long) {
 		// Do nothing
 	}
 }

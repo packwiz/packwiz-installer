@@ -7,11 +7,13 @@ import link.infra.packwiz.installer.ui.data.IOptionDetails
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
 import java.awt.EventQueue
+import java.util.Timer
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 import javax.swing.UIManager
+import kotlin.concurrent.timer
 import kotlin.system.exitProcess
 
 class GUIHandler : IUserInterface {
@@ -220,12 +222,28 @@ class GUIHandler : IUserInterface {
 		return future.get()
 	}
 
-	override fun awaitOptionalButton(showCancel: Boolean) {
+	override fun awaitOptionalButton(showCancel: Boolean, timeout: Long) {
 		EventQueue.invokeAndWait {
 			frmPackwizlauncher.showOk(!showCancel)
 		}
 		visibleCountdownLatch.await()
+
+		var closeTimer: Timer? = null
+		if (timeout >= 0) {
+			var count = 0
+			closeTimer = timer("timeout", true, 0, 1000) {
+				if (count >= timeout) {
+					optionalSelectedLatch.countDown()
+					cancel()
+				} else {
+					frmPackwizlauncher.timeoutOk(timeout - count)
+					count += 1
+				}
+			};
+		}
+
 		optionalSelectedLatch.await()
+		closeTimer?.cancel()
 		EventQueue.invokeLater {
 			frmPackwizlauncher.hideOk()
 		}
