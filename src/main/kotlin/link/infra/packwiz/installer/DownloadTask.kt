@@ -37,7 +37,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 
 	fun isNewOptional() = isOptional && newOptional
 
-	fun correctSide() = metadata.linkedFile?.side?.hasSide(downloadSide) ?: true
+	fun correctSide() = metadata.linkedFile?.side?.let { downloadSide.hasSide(it) } ?: true
 
 	override val name get() = metadata.name
 
