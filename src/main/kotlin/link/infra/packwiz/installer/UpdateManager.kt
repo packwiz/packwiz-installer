@@ -148,9 +148,21 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					invalid = true
 				}
 			}
+
 			if (invalid) {
-				Log.info("File ${fileUri.filename} invalidated, marked for redownloading")
-				invalidatedUris.add(fileUri)
+				// Check if a '.disabled' file exists in the same location. If so, it is likely a mod disabled by the mod
+				// launcher, and should be ignored.
+				val disabled = file.cachedLocation?.nioPath?.let {
+					it.resolveSibling("${it.fileName}.disabled").toFile().exists()
+				} ?: false
+
+				if (disabled) {
+					Log.info("File ${fileUri.filename} is disabled, ignoring")
+					continue
+				} else {
+					Log.info("File ${fileUri.filename} invalidated, marked for redownloading")
+					invalidatedUris.add(fileUri)
+				}
 			}
 		}
 
