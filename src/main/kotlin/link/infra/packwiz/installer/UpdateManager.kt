@@ -23,7 +23,6 @@ import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import link.infra.packwiz.installer.util.Log
 import okio.buffer
-import java.io.FileWriter
 import java.io.IOException
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
@@ -197,7 +196,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		manifest.cachedSide = opts.side
 		try {
-			FileWriter(opts.manifestFile.nioPath.toFile()).use { writer -> gson.toJson(manifest, writer) }
+			Files.newBufferedWriter(opts.manifestFile.nioPath, StandardCharsets.UTF_8).use { writer -> gson.toJson(manifest, writer) }
 		} catch (e: IOException) {
 			ui.showErrorAndExit("Failed to save local manifest file", e)
 		}
