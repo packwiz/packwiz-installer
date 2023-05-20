@@ -109,9 +109,9 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 							cachedFile.optionValue = linkedFile.option.defaultValue
 						}
 					}
-					cachedFile.isOptional = isOptional
-					cachedFile.onlyOtherSide = !correctSide()
 				}
+				cachedFile.isOptional = isOptional
+				cachedFile.onlyOtherSide = !correctSide()
 			}
 		}
 	}
