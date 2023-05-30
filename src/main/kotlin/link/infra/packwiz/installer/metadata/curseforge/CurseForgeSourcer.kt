@@ -49,14 +49,15 @@ private val APIKey = "JDJhJDEwJHNBWVhqblU1N0EzSmpzcmJYM3JVdk92UWk2NHBLS3BnQ2VpbG
 @Throws(JsonSyntaxException::class, JsonIOException::class)
 fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, clientHolder: ClientHolder): List<ExceptionDetails> {
 	val failures = mutableListOf<ExceptionDetails>()
-	val fileIdMap = mutableMapOf<Int, IndexFile.File>()
+	val fileIdMap = mutableMapOf<Int, List<IndexFile.File>>()
 
 	for (mod in mods) {
 		if (!mod.linkedFile!!.update.contains("curseforge")) {
 			failures.add(ExceptionDetails(mod.linkedFile!!.name, Exception("Failed to resolve CurseForge metadata: no CurseForge update section")))
 			continue
 		}
-		fileIdMap[(mod.linkedFile!!.update["curseforge"] as CurseForgeUpdateData).fileId] = mod
+		val fileId = (mod.linkedFile!!.update["curseforge"] as CurseForgeUpdateData).fileId
+		fileIdMap[fileId] = (fileIdMap[fileId] ?: listOf()) + mod
 	}
 
 	val reqData = GetFilesRequest(fileIdMap.keys.toList())
@@ -77,7 +78,7 @@ fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, c
 	val resData = Gson().fromJson(res.body!!.charStream(), GetFilesResponse::class.java)
 	res.closeQuietly()
 
-	val manualDownloadMods = mutableMapOf<Int, Pair<IndexFile.File, Int>>()
+	val manualDownloadMods = mutableMapOf<Int, List<Int>>()
 	for (file in resData.data) {
 		if (!fileIdMap.contains(file.id)) {
 			failures.add(ExceptionDetails(file.id.toString(),
@@ -85,12 +86,14 @@ fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, c
 			continue
 		}
 		if (file.downloadUrl == null) {
-			manualDownloadMods[file.modId] = Pair(fileIdMap[file.id]!!, file.id)
+			manualDownloadMods[file.modId] = (manualDownloadMods[file.modId] ?: listOf()) + file.id
 			continue
 		}
 		try {
-			fileIdMap[file.id]!!.linkedFile!!.resolvedUpdateData["curseforge"] =
-				HttpUrlPath(file.downloadUrl!!.toHttpUrl())
+			for (indexFile in fileIdMap[file.id]!!) {
+				indexFile.linkedFile!!.resolvedUpdateData["curseforge"] =
+					HttpUrlPath(file.downloadUrl!!.toHttpUrl())
+			}
 		} catch (e: IllegalArgumentException) {
 			failures.add(ExceptionDetails(file.id.toString(),
 				Exception("Failed to parse URL: ${file.downloadUrl} for ID ${file.id}, Project ID ${file.modId}", e)))
@@ -99,10 +102,13 @@ fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, c
 
 	// Some file types don't show up in the API at all! (e.g. shaderpacks)
 	// Add unresolved files to manualDownloadMods
-	for ((fileId, file) in fileIdMap) {
-		if (file.linkedFile != null) {
-			if (file.linkedFile!!.resolvedUpdateData["curseforge"] == null) {
-				manualDownloadMods[(file.linkedFile!!.update["curseforge"] as CurseForgeUpdateData).projectId] = Pair(file, fileId)
+	for ((fileId, indexFiles) in fileIdMap) {
+		for (file in indexFiles) {
+			if (file.linkedFile != null) {
+				if (file.linkedFile!!.resolvedUpdateData["curseforge"] == null) {
+					val projectId = (file.linkedFile!!.update["curseforge"] as CurseForgeUpdateData).projectId
+					manualDownloadMods[projectId] = (manualDownloadMods[projectId] ?: listOf()) + fileId
+				}
 			}
 		}
 	}
@@ -133,9 +139,18 @@ fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, c
 				continue
 			}
 
-			val modFile = manualDownloadMods[mod.id]!!
-			failures.add(ExceptionDetails(mod.name, Exception("This mod is excluded from the CurseForge API and must be downloaded manually.\n" +
-				"Please go to ${mod.links?.websiteUrl}/files/${modFile.second} and save this file to ${modFile.first.destURI.rebase(packFolder).nioPath.absolute()}")))
+			for (fileId in manualDownloadMods[mod.id]!!) {
+				if (!fileIdMap.contains(fileId)) {
+					failures.add(ExceptionDetails(mod.name,
+						Exception("Failed to find file from result: file ID $fileId")))
+					continue
+				}
+
+				for (indexFile in fileIdMap[fileId]!!) {
+					failures.add(ExceptionDetails(indexFile.name, Exception("This mod is excluded from the CurseForge API and must be downloaded manually.\n" +
+						"Please go to ${mod.links?.websiteUrl}/files/${fileId} and save this file to ${indexFile.destURI.rebase(packFolder).nioPath.absolute()}")))
+				}
+			}
 		}
 	}
 
