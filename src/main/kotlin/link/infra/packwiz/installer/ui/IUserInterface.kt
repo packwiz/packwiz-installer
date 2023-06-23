@@ -23,7 +23,10 @@ interface IUserInterface {
 
 	fun showCancellationDialog(): CancellationResult = CancellationResult.QUIT
 
-	fun showUpdateConfirmationDialog(oldVersions: List<Pair<String, String?>>, newVersions: List<Pair<String, String?>>): UpdateConfirmationResult = UpdateConfirmationResult.CANCELLED
+	fun showUpdateConfirmationDialog(oldVersions: List<Pair<String, String?>>, newVersions: List<Pair<String, String?>>): UpdateConfirmationResult {
+		// Always update metadata when using the CLI
+		return UpdateConfirmationResult.UPDATE
+	}
 
 	fun awaitOptionalButton(showCancel: Boolean, timeout: Long)
 
