@@ -24,6 +24,18 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 		fun getExceptionAt(index: Int) = details[index].exception
 	}
 
+	private fun openUrl(url: String) {
+		try {
+			if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+				Desktop.getDesktop().browse(URI(url))
+			} else {
+				Runtime.getRuntime().exec(arrayOf("xdg-open", url));
+			}
+		} catch (e: IOException) {
+			// lol the button just won't work i guess
+		} catch (e: URISyntaxException) {}
+	}
+
 	/**
 	 * Create the dialog.
 	 */
@@ -112,6 +124,14 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 							this@ExceptionListWindow.dispose()
 						}
 					})
+					add(JButton("Open missing mods").apply {
+						toolTipText = "Open missing mods in your browser"
+						addActionListener {
+							eList.filter { it.modUrl != null }.map { it.modUrl }.toSet().forEach {
+								openUrl(it!!)
+							}
+						}
+					})
 				}, BorderLayout.EAST)
 
 				// Errored label
@@ -122,16 +142,8 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 				// Left buttons
 				add(JPanel().apply {
 					add(JButton("Report issue").apply {
-						if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-							addActionListener {
-								try {
-									Desktop.getDesktop().browse(URI("https://github.com/packwiz/packwiz-installer/issues/new"))
-								} catch (e: IOException) {
-									// lol the button just won't work i guess
-								} catch (e: URISyntaxException) {}
-							}
-						} else {
-							isEnabled = false
+						addActionListener {
+							openUrl("https://github.com/packwiz/packwiz-installer/issues/new")
 						}
 					})
 				}, BorderLayout.WEST)

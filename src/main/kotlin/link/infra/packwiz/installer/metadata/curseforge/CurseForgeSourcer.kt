@@ -147,8 +147,9 @@ fun resolveCfMetadata(mods: List<IndexFile.File>, packFolder: PackwizFilePath, c
 				}
 
 				for (indexFile in fileIdMap[fileId]!!) {
+					var modUrl = "${mod.links?.websiteUrl}/files/${fileId}"
 					failures.add(ExceptionDetails(indexFile.name, Exception("This mod is excluded from the CurseForge API and must be downloaded manually.\n" +
-						"Please go to ${mod.links?.websiteUrl}/files/${fileId} and save this file to ${indexFile.destURI.rebase(packFolder).nioPath.absolute()}")))
+						"Please go to ${modUrl} and save this file to ${indexFile.destURI.rebase(packFolder).nioPath.absolute()}"), modUrl))
 				}
 			}
 		}
