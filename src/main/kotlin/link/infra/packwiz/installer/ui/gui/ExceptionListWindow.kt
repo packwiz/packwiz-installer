@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.util.Log
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import java.awt.BorderLayout
@@ -29,11 +30,17 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 			if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
 				Desktop.getDesktop().browse(URI(url))
 			} else {
-				Runtime.getRuntime().exec(arrayOf("xdg-open", url));
+				val process = Runtime.getRuntime().exec(arrayOf("xdg-open", url));
+				val exitValue = process.waitFor()
+				if (exitValue > 0) {
+					Log.warn("Failed to open $url: xdg-open exited with code $exitValue")
+				}
 			}
 		} catch (e: IOException) {
-			// lol the button just won't work i guess
-		} catch (e: URISyntaxException) {}
+			Log.warn("Failed to open $url", e)
+		} catch (e: URISyntaxException) {
+			Log.warn("Failed to open $url", e)
+		}
 	}
 
 	/**
