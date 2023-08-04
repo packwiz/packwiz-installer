@@ -124,14 +124,19 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 							this@ExceptionListWindow.dispose()
 						}
 					})
-					add(JButton("Open missing mods").apply {
-						toolTipText = "Open missing mods in your browser"
-						addActionListener {
-							eList.filter { it.modUrl != null }.map { it.modUrl }.toSet().forEach {
-								openUrl(it!!)
+
+					val missingMods = eList.filter { it.modUrl != null }.map { it.modUrl!! }.toSet()
+
+					if (!missingMods.isEmpty()) {
+						add(JButton("Open missing mods").apply {
+							toolTipText = "Open missing mods in your browser"
+							addActionListener {
+								missingMods.forEach {
+									openUrl(it)
+								}
 							}
-						}
-					})
+						})
+					}
 				}, BorderLayout.EAST)
 
 				// Errored label
