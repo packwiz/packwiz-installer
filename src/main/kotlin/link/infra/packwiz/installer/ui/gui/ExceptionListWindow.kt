@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.util.Log
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
 import java.awt.BorderLayout
@@ -22,6 +23,24 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 		override fun getSize() = details.size
 		override fun getElementAt(index: Int) = details[index].name
 		fun getExceptionAt(index: Int) = details[index].exception
+	}
+
+	private fun openUrl(url: String) {
+		try {
+			if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+				Desktop.getDesktop().browse(URI(url))
+			} else {
+				val process = Runtime.getRuntime().exec(arrayOf("xdg-open", url));
+				val exitValue = process.waitFor()
+				if (exitValue > 0) {
+					Log.warn("Failed to open $url: xdg-open exited with code $exitValue")
+				}
+			}
+		} catch (e: IOException) {
+			Log.warn("Failed to open $url", e)
+		} catch (e: URISyntaxException) {
+			Log.warn("Failed to open $url", e)
+		}
 	}
 
 	/**
@@ -112,6 +131,19 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 							this@ExceptionListWindow.dispose()
 						}
 					})
+
+					val missingMods = eList.filter { it.modUrl != null }.map { it.modUrl!! }.toSet()
+
+					if (!missingMods.isEmpty()) {
+						add(JButton("Open missing mods").apply {
+							toolTipText = "Open missing mods in your browser"
+							addActionListener {
+								missingMods.forEach {
+									openUrl(it)
+								}
+							}
+						})
+					}
 				}, BorderLayout.EAST)
 
 				// Errored label
@@ -122,16 +154,8 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 				// Left buttons
 				add(JPanel().apply {
 					add(JButton("Report issue").apply {
-						if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-							addActionListener {
-								try {
-									Desktop.getDesktop().browse(URI("https://github.com/packwiz/packwiz-installer/issues/new"))
-								} catch (e: IOException) {
-									// lol the button just won't work i guess
-								} catch (e: URISyntaxException) {}
-							}
-						} else {
-							isEnabled = false
+						addActionListener {
+							openUrl("https://github.com/packwiz/packwiz-installer/issues/new")
 						}
 					})
 				}, BorderLayout.WEST)
