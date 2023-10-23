@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption
 
 internal class DownloadTask private constructor(val metadata: IndexFile.File, val index: IndexFile, private val downloadSide: Side) : IOptionDetails {
 	var cachedFile: ManifestFile.File? = null
+		private set
 
 	private var err: Exception? = null
 	val exceptionDetails get() = err?.let { e -> ExceptionDetails(name, e) }
@@ -28,10 +29,24 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 	fun failed() = err != null
 
 	var alreadyUpToDate = false
+		private set
 	private var metadataRequired = true
 	private var invalidated = false
 	// If file is new or isOptional changed to true, the option needs to be presented again
 	private var newOptional = true
+	var completionStatus = CompletionStatus.INCOMPLETE
+		private set
+
+	enum class CompletionStatus {
+		INCOMPLETE,
+		DOWNLOADED,
+		ALREADY_EXISTS_CACHED,
+		ALREADY_EXISTS_VALIDATED,
+		SKIPPED_DISABLED,
+		SKIPPED_WRONG_SIDE,
+		DELETED_DISABLED,
+		DELETED_WRONG_SIDE;
+	}
 
 	val isOptional get() = metadata.linkedFile?.option?.optional ?: false
 
@@ -76,6 +91,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 			if (currHash == cachedFile.hash) { // Already up to date
 				alreadyUpToDate = true
 				metadataRequired = false
+				completionStatus = CompletionStatus.ALREADY_EXISTS_CACHED
 			}
 		}
 		if (cachedFile.isOptional) {
@@ -143,6 +159,7 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 					fileSource.buffer().readAll(blackholeSink())
 					if (hash == fileSource.hash) {
 						alreadyUpToDate = true
+						completionStatus = CompletionStatus.ALREADY_EXISTS_VALIDATED
 
 						// Update the manifest file
 						cachedFile = (cachedFile ?: ManifestFile.File()).also {
@@ -181,10 +198,18 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 				if (it.cachedLocation != null) {
 					// Ensure wrong-side or optional false files are removed
 					try {
-						Files.deleteIfExists(it.cachedLocation!!.nioPath)
+						completionStatus = if (Files.deleteIfExists(it.cachedLocation!!.nioPath)) {
+							if (correctSide()) { CompletionStatus.DELETED_DISABLED } else { CompletionStatus.DELETED_WRONG_SIDE }
+						} else {
+							if (correctSide()) { CompletionStatus.SKIPPED_DISABLED } else { CompletionStatus.SKIPPED_WRONG_SIDE }
+						}
 					} catch (e: IOException) {
 						Log.warn("Failed to delete file", e)
 					}
+				} else {
+					completionStatus =
+						if (correctSide()) { CompletionStatus.SKIPPED_DISABLED }
+						else { CompletionStatus.SKIPPED_WRONG_SIDE }
 				}
 				it.cachedLocation = null
 				return
@@ -284,6 +309,8 @@ internal class DownloadTask private constructor(val metadata: IndexFile.File, va
 				}
 			}
 		}
+
+		completionStatus = CompletionStatus.DOWNLOADED
 	}
 
 	companion object {

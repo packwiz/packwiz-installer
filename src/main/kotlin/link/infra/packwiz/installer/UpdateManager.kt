@@ -247,31 +247,17 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 
 		ui.submitProgress(InstallProgress("Checking local files..."))
-		// TODO: use kotlin filtering/FP rather than an iterator?
 		val it: MutableIterator<Map.Entry<PackwizFilePath, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
 		while (it.hasNext()) {
 			val (uri, file) = it.next()
 			if (file.cachedLocation != null) {
-				var alreadyDeleted = false
-				// Delete if option value has been set to false
-				if (file.isOptional && !file.optionValue) {
+				if (indexFile.files.none { it.file.rebase(opts.packFolder) == uri }) { // File has been removed from the index
 					try {
 						Files.deleteIfExists(file.cachedLocation!!.nioPath)
 					} catch (e: IOException) {
-						Log.warn("Failed to delete optional disabled file", e)
+						Log.warn("Failed to delete file removed from index", e)
 					}
-					// Set to null, as it doesn't exist anymore
-					file.cachedLocation = null
-					alreadyDeleted = true
-				}
-				if (indexFile.files.none { it.file.rebase(opts.packFolder) == uri }) { // File has been removed from the index
-					if (!alreadyDeleted) {
-						try {
-							Files.deleteIfExists(file.cachedLocation!!.nioPath)
-						} catch (e: IOException) {
-							Log.warn("Failed to delete file removed from index", e)
-						}
-					}
+					Log.info("Deleted ${file.cachedLocation!!.filename} (removed from pack)")
 					it.remove()
 				}
 			}
@@ -401,7 +387,16 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			val progress = if (exDetails != null) {
 				"Failed to download ${exDetails.name}: ${exDetails.exception.message}"
 			} else {
-				"Downloaded ${task.name}"
+				when (task.completionStatus) {
+					DownloadTask.CompletionStatus.INCOMPLETE -> "${task.name} pending (you should never see this...)"
+					DownloadTask.CompletionStatus.DOWNLOADED -> "Downloaded ${task.name}"
+					DownloadTask.CompletionStatus.ALREADY_EXISTS_CACHED -> "${task.name} already exists (cached)"
+					DownloadTask.CompletionStatus.ALREADY_EXISTS_VALIDATED -> "${task.name} already exists (validated)"
+					DownloadTask.CompletionStatus.SKIPPED_DISABLED -> "Skipped ${task.name} (disabled)"
+					DownloadTask.CompletionStatus.SKIPPED_WRONG_SIDE -> "Skipped ${task.name} (wrong side)"
+					DownloadTask.CompletionStatus.DELETED_DISABLED -> "Deleted ${task.name} (disabled)"
+					DownloadTask.CompletionStatus.DELETED_WRONG_SIDE -> "Deleted ${task.name} (wrong side)"
+				}
 			}
 			ui.submitProgress(InstallProgress(progress, i + 1, tasks.size))
 
