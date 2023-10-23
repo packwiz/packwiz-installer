@@ -127,40 +127,44 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 		ui.submitProgress(InstallProgress("Checking local files..."))
 
-		// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
+		// If the side changes, invalidate EVERYTHING (even when the index hasn't changed)
+		val invalidateAll = opts.side != manifest.cachedSide
 		val invalidatedUris: MutableList<PackwizFilePath> = ArrayList()
-		for ((fileUri, file) in manifest.cachedFiles) {
-			// ignore onlyOtherSide files
-			if (file.onlyOtherSide) {
-				continue
-			}
+		if (!invalidateAll) {
+			// Invalidation checking must be done here, as it must happen before pack/index hashes are checked
+			for ((fileUri, file) in manifest.cachedFiles) {
+				// ignore onlyOtherSide files
+				if (file.onlyOtherSide) {
+					continue
+				}
 
-			var invalid = false
-			// if isn't optional, or is optional but optionValue == true
-			if (!file.isOptional || file.optionValue) {
-				if (file.cachedLocation != null) {
-					if (!file.cachedLocation!!.nioPath.toFile().exists()) {
+				var invalid = false
+				// if isn't optional, or is optional but optionValue == true
+				if (!file.isOptional || file.optionValue) {
+					if (file.cachedLocation != null) {
+						if (!file.cachedLocation!!.nioPath.toFile().exists()) {
+							invalid = true
+						}
+					} else {
+						// if cachedLocation == null, should probably be installed!!
 						invalid = true
 					}
-				} else {
-					// if cachedLocation == null, should probably be installed!!
-					invalid = true
+				}
+				if (invalid) {
+					Log.info("File ${fileUri.filename} invalidated, marked for redownloading")
+					invalidatedUris.add(fileUri)
 				}
 			}
-			if (invalid) {
-				Log.info("File ${fileUri.filename} invalidated, marked for redownloading")
-				invalidatedUris.add(fileUri)
-			}
-		}
 
-		if (manifest.packFileHash?.let { it == packFileSource.hash } == true && invalidatedUris.isEmpty()) {
-			// todo: --force?
-			ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
-			if (manifest.cachedFiles.any { it.value.isOptional }) {
-				ui.awaitOptionalButton(false, opts.timeout)
-			}
-			if (!ui.optionsButtonPressed) {
-				return
+			if (manifest.packFileHash?.let { it == packFileSource.hash } == true && invalidatedUris.isEmpty()) {
+				// todo: --force?
+				ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
+				if (manifest.cachedFiles.any { it.value.isOptional }) {
+					ui.awaitOptionalButton(false, opts.timeout)
+				}
+				if (!ui.optionsButtonPressed) {
+					return
+				}
 			}
 		}
 
@@ -177,6 +181,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				pf.index.hashFormat,
 				manifest,
 				invalidatedUris,
+				invalidateAll,
 				clientHolder
 			)
 		} catch (e1: Exception) {
@@ -202,18 +207,20 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		}
 	}
 
-	private fun processIndex(indexUri: PackwizPath<*>, indexHash: Hash<*>, hashFormat: HashFormat<*>, manifest: ManifestFile, invalidatedFiles: List<PackwizFilePath>, clientHolder: ClientHolder) {
-		if (manifest.indexFileHash == indexHash && invalidatedFiles.isEmpty()) {
-			ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
-			if (manifest.cachedFiles.any { it.value.isOptional }) {
-				ui.awaitOptionalButton(false, opts.timeout)
-			}
-			if (!ui.optionsButtonPressed) {
-				return
-			}
-			if (ui.cancelButtonPressed) {
-				showCancellationDialog()
-				return
+	private fun processIndex(indexUri: PackwizPath<*>, indexHash: Hash<*>, hashFormat: HashFormat<*>, manifest: ManifestFile, invalidatedFiles: List<PackwizFilePath>, invalidateAll: Boolean, clientHolder: ClientHolder) {
+		if (!invalidateAll) {
+			if (manifest.indexFileHash == indexHash && invalidatedFiles.isEmpty()) {
+				ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
+				if (manifest.cachedFiles.any { it.value.isOptional }) {
+					ui.awaitOptionalButton(false, opts.timeout)
+				}
+				if (!ui.optionsButtonPressed) {
+					return
+				}
+				if (ui.cancelButtonPressed) {
+					showCancellationDialog()
+					return
+				}
 			}
 		}
 		manifest.indexFileHash = indexHash
@@ -281,9 +288,6 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			Log.warn("Index is empty!")
 		}
 		val tasks = createTasksFromIndex(indexFile, opts.side)
-		// If the side changes, invalidate EVERYTHING just in case
-		// Might not be needed, but done just to be safe
-		val invalidateAll = opts.side != manifest.cachedSide
 		if (invalidateAll) {
 			Log.info("Side changed, invalidating all mods")
 		}
