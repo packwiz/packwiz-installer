@@ -4,9 +4,10 @@ plugins {
 	id("com.github.johnrengelman.shadow") version "7.1.2"
 	id("com.palantir.git-version") version "0.13.0"
 	id("com.github.breadmoirai.github-release") version "2.4.1"
-	kotlin("jvm") version "1.7.10"
+	kotlin("jvm") version "1.9.22"
 	id("com.github.jk1.dependency-license-report") version "2.0"
 	`maven-publish`
+	id("de.comahe.i18n4k") version "0.7.0"
 }
 
 java {
@@ -39,6 +40,7 @@ dependencies {
 	implementation(kotlin("stdlib-jdk8"))
 	implementation("com.squareup.okhttp3:okhttp:4.10.0")
 	implementation("cc.ekblad:4koma:1.1.0")
+	implementation("de.comahe.i18n4k:i18n4k-core-jvm:0.7.0")
 
 	r8("com.android.tools:r8:3.3.28")
 }
