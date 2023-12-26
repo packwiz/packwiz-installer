@@ -15,7 +15,7 @@ import javax.swing.border.EmptyBorder
 import javax.swing.event.TableModelListener
 import javax.swing.table.TableModel
 
-class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, future: CompletableFuture<Boolean>, parentWindow: JFrame?) : JDialog(parentWindow, "Select optional mods...", true), ActionListener {
+class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, future: CompletableFuture<Boolean>, parentWindow: JFrame?) : JDialog(parentWindow, Msgs.hintMore(Msgs.selectOptionalMods()), true), ActionListener {
 	private val lblOptionDescription: JTextArea
 	private val tableModel: OptionTableModel
 	private val future: CompletableFuture<Boolean>

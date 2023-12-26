@@ -2,6 +2,7 @@ package link.infra.packwiz.installer.metadata
 
 import cc.ekblad.toml.decode
 import cc.ekblad.toml.tomlMapper
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.metadata.hash.Hash
 import link.infra.packwiz.installer.metadata.hash.HashFormat
 import link.infra.packwiz.installer.target.ClientHolder
@@ -42,7 +43,7 @@ data class IndexFile(
 			linkedFile = ModFile.mapper(file).decode<ModFile>(fileStream.buffer().inputStream())
 			if (fileHash != fileStream.hash) {
 				// TODO: propagate details about hash, and show better error!
-				throw Exception("Invalid mod file hash")
+				throw Exception(Msgs.invalidModFileHash())
 			}
 		}
 
@@ -50,7 +51,7 @@ data class IndexFile(
 		fun getSource(clientHolder: ClientHolder): Source {
 			return if (metafile) {
 				if (linkedFile == null) {
-					throw Exception("Linked file doesn't exist!")
+					throw Exception(Msgs.linkedFileNotExist())
 				}
 				linkedFile!!.getSource(clientHolder)
 			} else {

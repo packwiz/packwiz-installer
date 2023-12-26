@@ -45,7 +45,7 @@ class Main(args: Array<String>) {
 					} catch (ignored: Exception) {
 						// Ignore the exceptions, just continue using the ugly L&F
 					}
-					JOptionPane.showMessageDialog(null, "Failed to parse command line arguments: $e",
+					JOptionPane.showMessageDialog(null, Msgs.failedParseCliArg(e.toString()),
 						"packwiz-installer", JOptionPane.ERROR_MESSAGE)
 				}
 			}
@@ -60,9 +60,9 @@ class Main(args: Array<String>) {
 
 		val unparsedArgs = cmd.args
 		if (unparsedArgs.size > 1) {
-			ui.showErrorAndExit("Too many arguments specified!")
+			ui.showErrorAndExit(Msgs.tooManyCliArg())
 		} else if (unparsedArgs.isEmpty()) {
-			ui.showErrorAndExit("pack.toml URI to install from must be specified!")
+			ui.showErrorAndExit(Msgs.noPackUrlCliArg())
 		}
 
 		val title = cmd.getOptionValue("title")
@@ -76,34 +76,34 @@ class Main(args: Array<String>) {
 
 		val packFile = when {
 			// HTTP(s) URLs
-			Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(packFileRaw) -> ui.wrap("Invalid HTTP/HTTPS URL for pack file: $packFileRaw") {
+			Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(packFileRaw) -> ui.wrap(Msgs.invalidHttpUrl(packFileRaw)) {
 				HttpUrlPath(packFileRaw.toHttpUrl().resolve(".")!!, packFileRaw.toHttpUrl().pathSegments.last())
 			}
 			// File URIs (uses same logic as old packwiz-installer, for backwards compat)
 			Regex("^file:", RegexOption.IGNORE_CASE).containsMatchIn(packFileRaw) -> {
-				ui.wrap("Failed to parse file path for pack file: $packFileRaw") {
+				ui.wrap(Msgs.failedParseFilePath(packFileRaw)) {
 					val path = Paths.get(URI(packFileRaw)).toOkioPath()
-					PackwizFilePath(path.parent ?: ui.showErrorAndExit("Invalid pack file path: $packFileRaw"), path.name)
+					PackwizFilePath(path.parent ?: ui.showErrorAndExit(Msgs.invalidFilePath(packFileRaw)), path.name)
 				}
 			}
 			// Other URIs (unsupported)
-			Regex("^[a-z][a-z\\d+\\-.]*://", RegexOption.IGNORE_CASE).containsMatchIn(packFileRaw) -> ui.showErrorAndExit("Unsupported scheme for pack file: $packFileRaw")
+			Regex("^[a-z][a-z\\d+\\-.]*://", RegexOption.IGNORE_CASE).containsMatchIn(packFileRaw) -> ui.showErrorAndExit(Msgs.invalidUrlScheme(packFileRaw))
 			// None of the above matches -> interpret as file path
-			else -> PackwizFilePath(packFileRaw.toPath().parent ?: ui.showErrorAndExit("Invalid pack file path: $packFileRaw"), packFileRaw.toPath().name)
+			else -> PackwizFilePath(packFileRaw.toPath().parent ?: ui.showErrorAndExit(Msgs.invalidFilePath(packFileRaw)), packFileRaw.toPath().name)
 		}
 		val side = cmd.getOptionValue("side")?.let {
-			Side.from(it) ?: ui.showErrorAndExit("Unknown side name: $it")
+			Side.from(it) ?: ui.showErrorAndExit(Msgs.unknownSide(it))
 		} ?: Side.CLIENT
-		val packFolder = ui.wrap("Invalid pack folder path") {
+		val packFolder = ui.wrap(Msgs.invalidFolderPath()) {
 			cmd.getOptionValue("pack-folder")?.let{ PackwizFilePath(it.toPath()) } ?: PackwizFilePath(".".toPath())
 		}
-		val multimcFolder = ui.wrap("Invalid MultiMC folder path") {
+		val multimcFolder = ui.wrap(Msgs.invalidMultiMcPath()) {
 			cmd.getOptionValue("multimc-folder")?.let{ PackwizFilePath(it.toPath()) } ?: PackwizFilePath("..".toPath())
 		}
-		val manifestFile = ui.wrap("Invalid manifest file path") {
+		val manifestFile = ui.wrap(Msgs.invalidManifestPath()) {
 			packFolder / (cmd.getOptionValue("meta-file") ?: "packwiz.json")
 		}
-		val timeout = ui.wrap("Invalid timeout value") {
+		val timeout = ui.wrap(Msgs.invalidTimeoutCliArg()) {
 			cmd.getOptionValue("timeout")?.toLong() ?: 10
 		}
 
@@ -111,9 +111,9 @@ class Main(args: Array<String>) {
 		try {
 			UpdateManager(UpdateManager.Options(packFile, manifestFile, packFolder, multimcFolder, side, timeout), ui)
 		} catch (e: Exception) {
-			ui.showErrorAndExit("Update process failed", e)
+			ui.showErrorAndExit(Msgs.failedUpdate(), e)
 		}
-		println("Finished successfully!")
+		println(Msgs.successfulUpdate())
 		ui.dispose()
 	}
 
@@ -157,7 +157,7 @@ class Main(args: Array<String>) {
 			if (guiEnabled) {
 				EventQueue.invokeLater {
 					JOptionPane.showMessageDialog(null,
-						"A fatal error occurred: \n$e",
+						Msgs.fatalError(e.toString()),
 						"packwiz-installer", JOptionPane.ERROR_MESSAGE)
 					exitProcess(1)
 				}

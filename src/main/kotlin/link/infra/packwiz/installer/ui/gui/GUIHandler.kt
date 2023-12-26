@@ -207,7 +207,7 @@ class GUIHandler : IUserInterface {
 					Msgs.newVersionsQuestion())
 
 
-			val options = arrayOf(Msgs.cancel(), Msgs.continueAnyways(), Msgs.update())
+			val options = arrayOf(Msgs.cancel(), Msgs.continueAnyway(), Msgs.update())
 			val result = JOptionPane.showOptionDialog(frmPackwizlauncher, message,
 					Msgs.updateMultiMC(),
 					JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[2])
