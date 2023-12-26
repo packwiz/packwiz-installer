@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.ui.data.IOptionDetails
 import java.awt.BorderLayout
 import java.awt.FlowLayout
@@ -33,7 +34,7 @@ class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, fu
 		override fun getRowCount() = opts.size
 		override fun getColumnCount() = 2
 
-		private val columnNames = arrayOf("Enabled", "Mod name")
+		private val columnNames = arrayOf(Msgs.enabled(), Msgs.modName())
 		private val columnTypes = arrayOf(Boolean::class.javaObjectType, String::class.java)
 		private val columnEditables = booleanArrayOf(true, false)
 
@@ -96,7 +97,7 @@ class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, fu
 				add(JSplitPane().apply {
 					resizeWeight = 0.5
 
-					lblOptionDescription = JTextArea("Select an option...").apply {
+					lblOptionDescription = JTextArea(Msgs.hintMore(Msgs.selectOption())).apply {
 						background = UIManager.getColor("List.background")
 						isOpaque = true
 						wrapStyleWord = true
@@ -122,7 +123,7 @@ class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, fu
 							if (i > -1) {
 								lblOptionDescription.text = tableModel.getDescription(i)
 							} else {
-								lblOptionDescription.text = "Select an option..."
+								lblOptionDescription.text = Msgs.hintMore(Msgs.selectOption())
 							}
 						}
 						tableHeader = null
@@ -137,14 +138,14 @@ class OptionsSelectWindow internal constructor(optList: List<IOptionDetails>, fu
 				add(JPanel().apply {
 					layout = FlowLayout(FlowLayout.RIGHT)
 
-					add(JButton("OK").apply {
+					add(JButton(Msgs.ok()).apply {
 						actionCommand = "OK"
 						addActionListener(this@OptionsSelectWindow)
 
 						this@OptionsSelectWindow.rootPane.defaultButton = this
 					})
 
-					add(JButton("Cancel").apply {
+					add(JButton(Msgs.cancel()).apply {
 						actionCommand = "Cancel"
 						addActionListener(this@OptionsSelectWindow)
 					})

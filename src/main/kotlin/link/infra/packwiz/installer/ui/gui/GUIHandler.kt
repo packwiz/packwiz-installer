@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
@@ -74,7 +75,7 @@ class GUIHandler : IUserInterface {
 	}
 
 	override fun showErrorAndExit(message: String, e: Exception?): Nothing {
-		val buttons = arrayOf("Quit", if (firstInstall) "Continue without installing" else "Continue without updating")
+		val buttons = arrayOf(Msgs.quit(), if (firstInstall) Msgs.continueNoInstall() else Msgs.continueNoUpdate())
 		if (e != null) {
 			Log.fatal(message, e)
 			EventQueue.invokeAndWait {
@@ -130,8 +131,8 @@ class GUIHandler : IUserInterface {
 		EventQueue.invokeAndWait {
 			if (options.isEmpty()) {
 				JOptionPane.showMessageDialog(null,
-					"This modpack has no optional mods!",
-					"Optional mods", JOptionPane.INFORMATION_MESSAGE)
+					Msgs.noOptionalModsDesc(),
+					Msgs.optionalMods(), JOptionPane.INFORMATION_MESSAGE)
 				future.complete(false)
 			} else {
 				OptionsSelectWindow(options, future, frmPackwizlauncher).apply {
@@ -161,10 +162,10 @@ class GUIHandler : IUserInterface {
 	override fun showCancellationDialog(): IUserInterface.CancellationResult {
 		val future = CompletableFuture<IUserInterface.CancellationResult>()
 		EventQueue.invokeLater {
-			val buttons = arrayOf("Quit", "Ignore")
+			val buttons = arrayOf(Msgs.quit(), Msgs.ignore())
 			val result = JOptionPane.showOptionDialog(frmPackwizlauncher,
-					"The installation was cancelled. Would you like to quit the game, or ignore the update and start the game?",
-					"Cancelled installation",
+					Msgs.installCancelQuestion(),
+					Msgs.installCancel(),
 					JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, buttons, buttons[0])
 			future.complete(if (result == 0) IUserInterface.CancellationResult.QUIT else IUserInterface.CancellationResult.CONTINUE)
 		}
@@ -179,7 +180,7 @@ class GUIHandler : IUserInterface {
 			val newVersIndex = newVersions.map { it.first to it.second }.toMap()
 			val message = StringBuilder()
 			message.append("<html>" +
-					"This modpack uses newer versions of the following:<br>" +
+					Msgs.newVersionsDesc() + "<br>" +
 					"<ul>")
 
 			for (oldVer in oldVersions) {
@@ -187,28 +188,28 @@ class GUIHandler : IUserInterface {
 				message.append("<li>")
 				message.append(oldVer.first.replaceFirstChar { it.uppercase() })
 				message.append(": <font color=${if (oldVer.second != correspondingNewVer) "#ff0000" else "#000000"}>")
-				message.append(oldVer.second ?: "Not found")
+				message.append(oldVer.second ?: Msgs.notFound())
 				message.append("</font></li>")
 			}
 			message.append("</ul>")
 
-			message.append("New versions:" +
+			message.append(Msgs.newVersions() +
 					"<ul>")
 			for (newVer in newVersions) {
 				val correspondingOldVer = oldVersIndex[newVer.first]
 				message.append("<li>")
 				message.append(newVer.first.replaceFirstChar { it.uppercase() })
 				message.append(": <font color=${if (newVer.second != correspondingOldVer) "#00ff00" else "#000000"}>")
-				message.append(newVer.second ?: "Not found")
+				message.append(newVer.second ?: Msgs.notFound())
 				message.append("</font></li>")
 			}
 			message.append("</ul><br>" +
-					"Would you like to update the versions, launch without updating, or cancel the launch?")
+					Msgs.newVersionsQuestion())
 
 
-			val options = arrayOf("Cancel", "Continue anyways", "Update")
+			val options = arrayOf(Msgs.cancel(), Msgs.continueAnyways(), Msgs.update())
 			val result = JOptionPane.showOptionDialog(frmPackwizlauncher, message,
-					"Updating MultiMC versions",
+					Msgs.updateMultiMC(),
 					JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[2])
 			future.complete(
 				when (result) {
