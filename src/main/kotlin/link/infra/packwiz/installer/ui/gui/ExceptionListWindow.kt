@@ -108,7 +108,7 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 
 				// Right buttons
 				add(JPanel().apply {
-					add(JButton(Msgs.`continue`()).apply {
+					add(JButton(Msgs.continueText()).apply {
 						toolTipText = Msgs.continueInstallDesc()
 						addActionListener {
 							future.complete(IUserInterface.ExceptionListResult.CONTINUE)

@@ -2,6 +2,8 @@
 
 package link.infra.packwiz.installer
 
+import de.comahe.i18n4k.config.I18n4kConfigDefault
+import de.comahe.i18n4k.i18n4k
 import link.infra.packwiz.installer.target.Side
 import link.infra.packwiz.installer.target.path.HttpUrlPath
 import link.infra.packwiz.installer.target.path.PackwizFilePath
@@ -19,6 +21,9 @@ import java.awt.EventQueue
 import java.awt.GraphicsEnvironment
 import java.net.URI
 import java.nio.file.Paths
+import java.util.*
+import java.util.function.Function
+import java.util.stream.Collectors
 import javax.swing.JOptionPane
 import javax.swing.UIManager
 import kotlin.system.exitProcess
@@ -29,6 +34,22 @@ class Main(args: Array<String>) {
 	private var guiEnabled = !GraphicsEnvironment.isHeadless()
 
 	private fun startup(args: Array<String>) {
+
+
+		// Very small CLI implementation, because Commons CLI complains on unexpected
+		// options
+
+		// Set up i18n4k
+		val i18nConfig = I18n4kConfigDefault()
+		i18n4k = i18nConfig
+		val availLanguages = Msgs.locales
+			.stream().collect(Collectors.toMap({ obj: Locale -> obj.toString() }, { locale: Locale? -> locale }))
+		var preferLanguage = Locale.getDefault().toString()
+		while (!availLanguages.containsKey(preferLanguage) && preferLanguage.contains("_")) {
+			preferLanguage = preferLanguage.substring(0, preferLanguage.lastIndexOf('_'))
+		}
+		i18nConfig.locale = availLanguages.getOrDefault(preferLanguage, Locale.ENGLISH)!!
+
 		val options = Options()
 		addNonBootstrapOptions(options)
 		addBootstrapOptions(options)

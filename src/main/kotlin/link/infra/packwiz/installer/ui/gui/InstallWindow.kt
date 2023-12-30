@@ -69,7 +69,7 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 			})
 		}
 
-		btnOk = JButton(Msgs.`continue`()).apply {
+		btnOk = JButton(Msgs.continueText()).apply {
 			addActionListener {
 				handler.okButtonPressed = true
 			}
@@ -124,6 +124,6 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 	}
 
 	fun timeoutOk(remaining: Long) {
-		btnOk.text = Msgs.countdown(Msgs.`continue`(), remaining)
+		btnOk.text = Msgs.countdown(Msgs.continueText(), remaining)
 	}
 }
