@@ -42,7 +42,7 @@ dependencies {
 	implementation("cc.ekblad:4koma:1.1.0")
 	implementation("de.comahe.i18n4k:i18n4k-core-jvm:0.7.0")
 
-	r8("com.android.tools:r8:3.3.28")
+	r8("com.android.tools:r8:8.0.40")
 }
 
 application {
