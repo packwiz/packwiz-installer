@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.util.Log
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
@@ -16,7 +17,7 @@ import java.util.concurrent.CompletableFuture
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 
-class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFuture<IUserInterface.ExceptionListResult>, numTotal: Int, allowsIgnore: Boolean, parentWindow: JFrame?) : JDialog(parentWindow, "Failed file downloads", true) {
+class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFuture<IUserInterface.ExceptionListResult>, numTotal: Int, allowsIgnore: Boolean, parentWindow: JFrame?) : JDialog(parentWindow, Msgs.failedFileDownloads(), true) {
 	private val lblExceptionStacktrace: JTextArea
 
 	private class ExceptionListModel(private val details: List<ExceptionDetails>) : AbstractListModel<String>() {
@@ -55,7 +56,7 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 
 			// Error panel
 			add(JPanel().apply {
-				add(JLabel("One or more errors were encountered while installing the modpack!").apply {
+				add(JLabel(Msgs.installErrorDesc()).apply {
 					icon = UIManager.getIcon("OptionPane.warningIcon")
 				})
 			}, BorderLayout.NORTH)
@@ -68,7 +69,7 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 				add(JSplitPane().apply {
 					resizeWeight = 0.3
 
-					lblExceptionStacktrace = JTextArea("Select a file")
+					lblExceptionStacktrace = JTextArea(Msgs.selectFile())
 					lblExceptionStacktrace.background = UIManager.getColor("List.background")
 					lblExceptionStacktrace.isOpaque = true
 					lblExceptionStacktrace.wrapStyleWord = true
@@ -94,7 +95,7 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 								// Scroll to the top
 								lblExceptionStacktrace.caretPosition = 0
 							} else {
-								lblExceptionStacktrace.text = "Select a file"
+								lblExceptionStacktrace.text = Msgs.selectFile()
 							}
 						}
 					})
@@ -107,24 +108,24 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 
 				// Right buttons
 				add(JPanel().apply {
-					add(JButton("Continue").apply {
-						toolTipText = "Attempt to continue installing, excluding the failed downloads"
+					add(JButton(Msgs.continueText()).apply {
+						toolTipText = Msgs.continueInstallDesc()
 						addActionListener {
 							future.complete(IUserInterface.ExceptionListResult.CONTINUE)
 							this@ExceptionListWindow.dispose()
 						}
 					})
 
-					add(JButton("Cancel launch").apply {
-						toolTipText = "Stop launching the game"
+					add(JButton(Msgs.cancelLaunch()).apply {
+						toolTipText = Msgs.cancelLaunchDesc()
 						addActionListener {
 							future.complete(IUserInterface.ExceptionListResult.CANCEL)
 							this@ExceptionListWindow.dispose()
 						}
 					})
 
-					add(JButton("Ignore update").apply {
-						toolTipText = "Start the game without attempting to update"
+					add(JButton(Msgs.ignoreUpdate()).apply {
+						toolTipText = Msgs.ignoreUpdateDesc()
 						isEnabled = allowsIgnore
 						addActionListener {
 							future.complete(IUserInterface.ExceptionListResult.IGNORE)
@@ -135,8 +136,8 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 					val missingMods = eList.filter { it.modUrl != null }.map { it.modUrl!! }.toSet()
 
 					if (!missingMods.isEmpty()) {
-						add(JButton("Open missing mods").apply {
-							toolTipText = "Open missing mods in your browser"
+						add(JButton(Msgs.openMissingMods()).apply {
+							toolTipText = Msgs.openMissingModsDesc()
 							addActionListener {
 								missingMods.forEach {
 									openUrl(it)
@@ -147,13 +148,13 @@ class ExceptionListWindow(eList: List<ExceptionDetails>, future: CompletableFutu
 				}, BorderLayout.EAST)
 
 				// Errored label
-				add(JLabel(eList.size.toString() + "/" + numTotal + " errored").apply {
+				add(JLabel(Msgs.erroredPart(eList.size.toString(), numTotal)).apply {
 					horizontalAlignment = SwingConstants.CENTER
 				}, BorderLayout.CENTER)
 
 				// Left buttons
 				add(JPanel().apply {
-					add(JButton("Report issue").apply {
+					add(JButton(Msgs.reportIssue()).apply {
 						addActionListener {
 							openUrl("https://github.com/packwiz/packwiz-installer/issues/new")
 						}

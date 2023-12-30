@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.cli
 
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.ui.IUserInterface
 import link.infra.packwiz.installer.ui.IUserInterface.ExceptionListResult
 import link.infra.packwiz.installer.ui.data.ExceptionDetails
@@ -55,7 +56,7 @@ class CLIHandler : IUserInterface {
 	}
 
 	override fun showExceptions(exceptions: List<ExceptionDetails>, numTotal: Int, allowsIgnore: Boolean): ExceptionListResult {
-		println("Failed to download modpack, the following errors were encountered:")
+		println(Msgs.failedUpdateDesc())
 		for (ex in exceptions) {
 			print(ex.name + ": ")
 			ex.exception.printStackTrace()

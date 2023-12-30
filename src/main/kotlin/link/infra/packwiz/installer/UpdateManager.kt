@@ -58,7 +58,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			clientHolder.close()
 		}
 
-		ui.submitProgress(InstallProgress("Loading manifest file..."))
+		ui.submitProgress(InstallProgress(Msgs.umLoadingManifest()))
 		val gson = GsonBuilder()
 			.registerTypeAdapter(Hash::class.java, Hash.TypeHandler())
 			.registerTypeAdapter(PackwizFilePath::class.java, PackwizPath.adapterRelativeTo(opts.packFolder))
@@ -73,9 +73,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			ui.firstInstall = true
 			ManifestFile()
 		} catch (e: JsonSyntaxException) {
-			ui.showErrorAndExit("Invalid local manifest file, try deleting ${opts.manifestFile}", e)
+			ui.showErrorAndExit(Msgs.umInvalidManifestSyntax(opts.manifestFile), e)
 		} catch (e: JsonIOException) {
-			ui.showErrorAndExit("Failed to read local manifest file, try deleting ${opts.manifestFile}", e)
+			ui.showErrorAndExit(Msgs.umInvalidManifestIO(opts.manifestFile), e)
 		}
 
 		if (ui.cancelButtonPressed) {
@@ -83,19 +83,19 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 
-		ui.submitProgress(InstallProgress("Loading pack file..."))
+		ui.submitProgress(InstallProgress(Msgs.umLoadingPack()))
 		val packFileSource = try {
 			val src = opts.packFile.source(clientHolder)
 			HashFormat.SHA256.source(src)
 		} catch (e: Exception) {
 			// TODO: ensure suppressed/caused exceptions are shown?
-			ui.showErrorAndExit("Failed to download pack.toml", e)
+			ui.showErrorAndExit(Msgs.umFailedDownloadPack(), e)
 		}
 		val pf = packFileSource.buffer().use {
 			try {
 				PackFile.mapper(opts.packFile).decode<PackFile>(it.inputStream())
 			} catch (e: IllegalStateException) {
-				ui.showErrorAndExit("Failed to parse pack.toml", e)
+				ui.showErrorAndExit(Msgs.umFailedParsePack(), e)
 			}
 		}
 
@@ -108,11 +108,11 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		val lu = LauncherUtils(opts, ui)
 
 		// MultiMC MC and loader version checker
-		ui.submitProgress(InstallProgress("Loading MultiMC pack file..."))
+		ui.submitProgress(InstallProgress(Msgs.umLoadingMultiMC()))
 		try {
 			when (lu.handleMultiMC(pf, gson)) {
 				LauncherUtils.LauncherStatus.CANCELLED -> cancelled = true
-				LauncherUtils.LauncherStatus.NOT_FOUND -> Log.info("MultiMC not detected")
+				LauncherUtils.LauncherStatus.NOT_FOUND -> Log.info(Msgs.umNoMultiMC())
 				else -> {}
 			}
 			handleCancellation()
@@ -125,7 +125,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			handleCancellation()
 		}
 
-		ui.submitProgress(InstallProgress("Checking local files..."))
+		ui.submitProgress(InstallProgress(Msgs.umCheckingLocalFiles()))
 
 		// If the side changes, invalidate EVERYTHING (even when the index hasn't changed)
 		val invalidateAll = opts.side != manifest.cachedSide
@@ -151,14 +151,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					}
 				}
 				if (invalid) {
-					Log.info("File ${fileUri.filename} invalidated, marked for redownloading")
+					Log.info(Msgs.umInvalidateLocalFile(fileUri.filename))
 					invalidatedUris.add(fileUri)
 				}
 			}
 
 			if (manifest.packFileHash?.let { it == packFileSource.hash } == true && invalidatedUris.isEmpty()) {
 				// todo: --force?
-				ui.submitProgress(InstallProgress("Modpack is already up to date!", 1, 1))
+				ui.submitProgress(InstallProgress(Msgs.umModpackUpToDate(), 1, 1))
 				if (manifest.cachedFiles.any { it.value.isOptional }) {
 					ui.awaitOptionalButton(false, opts.timeout)
 				}
@@ -168,7 +168,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			}
 		}
 
-		Log.info("Modpack name: ${pf.name}")
+		Log.info(Msgs.umModpackName(pf.name))
 
 		if (ui.cancelButtonPressed) {
 			showCancellationDialog()
@@ -185,7 +185,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 				clientHolder
 			)
 		} catch (e1: Exception) {
-			ui.showErrorAndExit("Failed to process index file", e1)
+			ui.showErrorAndExit(Msgs.umInvalidIndex(), e1)
 		}
 
 		handleCancellation()
@@ -203,14 +203,14 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		try {
 			Files.newBufferedWriter(opts.manifestFile.nioPath, StandardCharsets.UTF_8).use { writer -> gson.toJson(manifest, writer) }
 		} catch (e: IOException) {
-			ui.showErrorAndExit("Failed to save local manifest file", e)
+			ui.showErrorAndExit(Msgs.umFailedSaveLocalManifest(), e)
 		}
 	}
 
 	private fun processIndex(indexUri: PackwizPath<*>, indexHash: Hash<*>, hashFormat: HashFormat<*>, manifest: ManifestFile, invalidatedFiles: List<PackwizFilePath>, invalidateAll: Boolean, clientHolder: ClientHolder) {
 		if (!invalidateAll) {
 			if (manifest.indexFileHash == indexHash && invalidatedFiles.isEmpty()) {
-				ui.submitProgress(InstallProgress("Modpack files are already up to date!", 1, 1))
+				ui.submitProgress(InstallProgress(Msgs.umModpackFilesUpToDate(), 1, 1))
 				if (manifest.cachedFiles.any { it.value.isOptional }) {
 					ui.awaitOptionalButton(false, opts.timeout)
 				}
@@ -229,16 +229,16 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			val src = indexUri.source(clientHolder)
 			hashFormat.source(src)
 		} catch (e: Exception) {
-			ui.showErrorAndExit("Failed to download index file", e)
+			ui.showErrorAndExit(Msgs.umFailedDownloadIndex(), e)
 		}
 
 		val indexFile = try {
 			IndexFile.mapper(indexUri).decode<IndexFile>(indexFileSource.buffer().inputStream())
 		} catch (e: IllegalStateException) {
-			ui.showErrorAndExit("Failed to parse index file", e)
+			ui.showErrorAndExit(Msgs.umFailedParseIndex(), e)
 		}
 		if (indexHash != indexFileSource.hash) {
-			ui.showErrorAndExit("Your index file hash is invalid! The pack developer should packwiz refresh on the pack again")
+			ui.showErrorAndExit(Msgs.umInvalidIndexHash())
 		}
 
 		if (ui.cancelButtonPressed) {
@@ -246,7 +246,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			return
 		}
 
-		ui.submitProgress(InstallProgress("Checking local files..."))
+		ui.submitProgress(InstallProgress(Msgs.umCheckingLocalFiles()))
 		val it: MutableIterator<Map.Entry<PackwizFilePath, ManifestFile.File>> = manifest.cachedFiles.entries.iterator()
 		while (it.hasNext()) {
 			val (uri, file) = it.next()
@@ -255,9 +255,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 					try {
 						Files.deleteIfExists(file.cachedLocation!!.nioPath)
 					} catch (e: IOException) {
-						Log.warn("Failed to delete file removed from index", e)
+						Log.warn(Msgs.umFailedDeleteFile(), e)
 					}
-					Log.info("Deleted ${file.cachedLocation!!.filename} (removed from pack)")
+					Log.info(Msgs.umDeletedFile(file.cachedLocation!!.filename))
 					it.remove()
 				}
 			}
@@ -267,15 +267,15 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			showCancellationDialog()
 			return
 		}
-		ui.submitProgress(InstallProgress("Comparing new files..."))
+		ui.submitProgress(InstallProgress(Msgs.umComparingNewFiles()))
 
 		// TODO: progress bar?
 		if (indexFile.files.isEmpty()) {
-			Log.warn("Index is empty!")
+			Log.warn(Msgs.umIndexEmpty())
 		}
 		val tasks = createTasksFromIndex(indexFile, opts.side)
 		if (invalidateAll) {
-			Log.info("Side changed, invalidating all mods")
+			Log.info(Msgs.umSideChanged())
 		}
 		tasks.forEach{ f ->
 			// TODO: should linkedfile be checked as well? should this be done in the download section?
@@ -327,7 +327,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 		if (optionTasks.isNotEmpty() && !optionsChanged) {
 			if (!ui.optionsButtonPressed) {
 				// TODO: this is so ugly
-				ui.submitProgress(InstallProgress("Reconfigure optional mods?", 0,1))
+				ui.submitProgress(InstallProgress(Msgs.umReconfigureOptionalQuestion(), 0,1))
 				ui.awaitOptionalButton(true, opts.timeout)
 				if (ui.cancelButtonPressed) {
 					showCancellationDialog()
@@ -367,9 +367,9 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			val task: DownloadTask = try {
 				completionService.take().get()
 			} catch (e: InterruptedException) {
-				ui.showErrorAndExit("Interrupted when consuming download tasks", e)
+				ui.showErrorAndExit(Msgs.umInterruptedDownloadTask(), e)
 			} catch (e: ExecutionException) {
-				ui.showErrorAndExit("Failed to execute download task", e)
+				ui.showErrorAndExit(Msgs.umFailedDownloadTask(), e)
 			}
 			// Update manifest - If there were no errors cachedFile has already been modified in place (good old pass by reference)
 			task.cachedFile?.let { file ->
@@ -385,17 +385,17 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 
 			val exDetails = task.exceptionDetails
 			val progress = if (exDetails != null) {
-				"Failed to download ${exDetails.name}: ${exDetails.exception.message}"
+				Msgs.umFailedDownload(exDetails.name, exDetails.exception.message ?: "")
 			} else {
 				when (task.completionStatus) {
-					DownloadTask.CompletionStatus.INCOMPLETE -> "${task.name} pending (you should never see this...)"
-					DownloadTask.CompletionStatus.DOWNLOADED -> "Downloaded ${task.name}"
-					DownloadTask.CompletionStatus.ALREADY_EXISTS_CACHED -> "${task.name} already exists (cached)"
-					DownloadTask.CompletionStatus.ALREADY_EXISTS_VALIDATED -> "${task.name} already exists (validated)"
-					DownloadTask.CompletionStatus.SKIPPED_DISABLED -> "Skipped ${task.name} (disabled)"
-					DownloadTask.CompletionStatus.SKIPPED_WRONG_SIDE -> "Skipped ${task.name} (wrong side)"
-					DownloadTask.CompletionStatus.DELETED_DISABLED -> "Deleted ${task.name} (disabled)"
-					DownloadTask.CompletionStatus.DELETED_WRONG_SIDE -> "Deleted ${task.name} (wrong side)"
+					DownloadTask.CompletionStatus.INCOMPLETE -> Msgs.umTaskStatePending(task.name)
+					DownloadTask.CompletionStatus.DOWNLOADED -> Msgs.umTaskStateDownloaded(task.name)
+					DownloadTask.CompletionStatus.ALREADY_EXISTS_CACHED -> Msgs.unTaskStateAlreadyExistsCached(task.name)
+					DownloadTask.CompletionStatus.ALREADY_EXISTS_VALIDATED -> Msgs.umTaskStateAlreadyExistsValidated(task.name)
+					DownloadTask.CompletionStatus.SKIPPED_DISABLED -> Msgs.umTaskStateSkippedDisabled(task.name)
+					DownloadTask.CompletionStatus.SKIPPED_WRONG_SIDE -> Msgs.umTaskStateSkippedWrongSide(task.name)
+					DownloadTask.CompletionStatus.DELETED_DISABLED -> Msgs.umTaskStateDeletedDisabled(task.name)
+					DownloadTask.CompletionStatus.DELETED_WRONG_SIDE -> Msgs.umTaskStateDeletedWrongSide(task.name)
 				}
 			}
 			ui.submitProgress(InstallProgress(progress, i + 1, tasks.size))
@@ -430,7 +430,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	}
 
 	private fun validateAndResolve(nonFailedFirstTasks: List<DownloadTask>, clientHolder: ClientHolder): ResolveResult {
-		ui.submitProgress(InstallProgress("Validating existing files..."))
+		ui.submitProgress(InstallProgress(Msgs.umValidatingExistingFiles()))
 
 		// Validate existing files
 		for (downloadTask in nonFailedFirstTasks.filter(DownloadTask::correctSide)) {
@@ -444,7 +444,7 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 			.filter { it.linkedFile != null }
 			.filter { it.linkedFile!!.download.mode == DownloadMode.CURSEFORGE }.toList()
 		if (cfFiles.isNotEmpty()) {
-			ui.submitProgress(InstallProgress("Resolving CurseForge metadata..."))
+			ui.submitProgress(InstallProgress(Msgs.umResolvingCurseforgeMetadata()))
 			val resolveFailures = resolveCfMetadata(cfFiles, opts.packFolder, clientHolder)
 			if (resolveFailures.isNotEmpty()) {
 				errorsOccurred = true
@@ -476,10 +476,10 @@ class UpdateManager internal constructor(private val opts: Options, val ui: IUse
 	// TODO: move to UI?
 	private fun handleCancellation() {
 		if (cancelled) {
-			println("Update cancelled by user!")
+			println(Msgs.umUpdateCancelledUser())
 			exitProcess(1)
 		} else if (cancelledStartGame) {
-			println("Update cancelled by user! Continuing to start game...")
+			println(Msgs.umUpdateCancelledUserStartGame())
 			exitProcess(0)
 		}
 	}

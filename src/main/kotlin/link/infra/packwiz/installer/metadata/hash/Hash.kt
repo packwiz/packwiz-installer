@@ -1,6 +1,7 @@
 package link.infra.packwiz.installer.metadata.hash
 
 import com.google.gson.*
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.metadata.hash.Hash.SourceProvider
 import okio.ByteString
 import okio.ByteString.Companion.decodeHex
@@ -64,12 +65,12 @@ data class Hash<T>(val type: HashFormat<T>, val value: T) {
 				type = obj["type"].asString
 				value = obj["value"].asString
 			} catch (e: NullPointerException) {
-				throw JsonParseException("Invalid hash JSON data")
+				throw JsonParseException(Msgs.invalidHashJsonData())
 			}
 			return try {
-				(HashFormat.fromName(type) ?: throw JsonParseException("Unknown hash type $type")).fromString(value)
+				(HashFormat.fromName(type) ?: throw JsonParseException(Msgs.unknownHashType(type))).fromString(value)
 			} catch (e: Exception) {
-				throw JsonParseException("Failed to create hash object", e)
+				throw JsonParseException(Msgs.failedCreateHashObj(), e)
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package link.infra.packwiz.installer.metadata.hash
 
 import cc.ekblad.toml.model.TomlValue
 import cc.ekblad.toml.tomlMapper
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.metadata.hash.Hash.Encoding
 import link.infra.packwiz.installer.metadata.hash.Hash.SourceProvider
 import link.infra.packwiz.installer.metadata.hash.Hash.SourceProvider.Companion.fromOkio
@@ -32,7 +33,7 @@ sealed class HashFormat<T>(val formatName: String): Encoding<T>, SourceProvider<
 
 		fun mapper() = tomlMapper {
 			// TODO: better exception?
-			decoder { it: TomlValue.String -> fromName(it.value) ?: throw Exception("Hash format ${it.value} not supported") }
+			decoder { it: TomlValue.String -> fromName(it.value) ?: throw Exception(Msgs.unknownHashType(it.value)) }
 			encoder { it: HashFormat<*> -> TomlValue.String(it.formatName) }
 		}
 	}
