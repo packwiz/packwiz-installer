@@ -48,6 +48,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 		val modLoaders = hashMapOf(
 			"net.minecraft" to "minecraft",
 			"net.minecraftforge" to "forge",
+			"net.neoforged" to "neoforge",
 			"net.fabricmc.fabric-loader" to "fabric",
 			"org.quiltmc.quilt-loader" to "quilt",
 			"com.mumfrey.liteloader" to "liteloader"
@@ -59,6 +60,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 			"org.lwjgl" to -1,
 			"org.lwjgl3" to -1,
 			"net.minecraftforge" to 5,
+			"net.neoforged" to 5,
 			"net.fabricmc.fabric-loader" to 10,
 			"org.quiltmc.quilt-loader" to 10,
 			"com.mumfrey.liteloader" to 10,
