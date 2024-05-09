@@ -1,5 +1,6 @@
 package link.infra.packwiz.installer.ui.gui
 
+import link.infra.packwiz.installer.Msgs
 import link.infra.packwiz.installer.ui.data.InstallProgress
 import java.awt.BorderLayout
 import java.awt.Component
@@ -33,7 +34,7 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 			}
 			add(progressBar, BorderLayout.CENTER)
 
-			lblProgresslabel = JLabel("Loading...")
+			lblProgresslabel = JLabel(Msgs.hintMore(Msgs.loading()))
 			add(lblProgresslabel, BorderLayout.SOUTH)
 		}, BorderLayout.CENTER)
 
@@ -42,11 +43,11 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 			border = EmptyBorder(0, 5, 0, 5)
 			layout = GridBagLayout()
 
-			btnOptions = JButton("Optional mods...").apply {
+			btnOptions = JButton(Msgs.hintMore(Msgs.optionalMods())).apply {
 				alignmentX = Component.CENTER_ALIGNMENT
 
 				addActionListener {
-					text = "Loading..."
+					text = Msgs.hintMore(Msgs.loading())
 					isEnabled = false
 					handler.optionsButtonPressed = true
 				}
@@ -56,7 +57,7 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 				gridy = 0
 			})
 
-			btnCancel = JButton("Cancel").apply {
+			btnCancel = JButton(Msgs.cancel()).apply {
 				addActionListener {
 					isEnabled = false
 					handler.cancelButtonPressed = true
@@ -68,7 +69,7 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 			})
 		}
 
-		btnOk = JButton("Continue").apply {
+		btnOk = JButton(Msgs.continueText()).apply {
 			addActionListener {
 				handler.okButtonPressed = true
 			}
@@ -90,7 +91,7 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 
 	fun disableOptionsButton(hasOptions: Boolean) {
 		btnOptions.apply {
-			text = if (hasOptions) { "Optional mods..." } else { "No optional mods" }
+			text = if (hasOptions) { Msgs.hintMore(Msgs.optionalMods()) } else { Msgs.noOptionalMods() }
  			isEnabled = false
 		}
 	}
@@ -123,6 +124,6 @@ class InstallWindow(private val handler: GUIHandler) : JFrame() {
 	}
 
 	fun timeoutOk(remaining: Long) {
-		btnOk.text = "Continue ($remaining)"
+		btnOk.text = Msgs.countdown(Msgs.continueText(), remaining)
 	}
 }

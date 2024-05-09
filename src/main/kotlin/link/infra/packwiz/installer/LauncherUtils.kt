@@ -30,18 +30,18 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 			try {
 				JsonParser.parseReader(it)
 			} catch (e: JsonIOException) {
-				throw Exception("Cannot read the MultiMC pack file", e)
+				throw Exception(Msgs.umInvalidMultiMCIO(), e)
 			} catch (e: JsonSyntaxException) {
-				throw Exception("Invalid MultiMC pack file", e)
+				throw Exception(Msgs.umInvalidMultiMCSyntax(), e)
 			}.asJsonObject
 		}
 
-		Log.info("Loaded MultiMC config")
+		Log.info(Msgs.umLoadedMultiMC())
 
 		// We only support format 1, if it gets updated in the future we'll have to handle that
 		// There's only version 1 for now tho, so that's good
 		if (multimcManifest["formatVersion"]?.asInt != 1) {
-			throw Exception("Unsupported MultiMC format version ${multimcManifest["formatVersion"]}")
+			throw Exception(Msgs.umUnsupportedMultiMCVersion(multimcManifest["formatVersion"]))
 		}
 
 		var manifestModified = false
@@ -69,7 +69,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 		val modLoadersClasses = modLoaders.entries.associate{(k,v)-> v to k}
 		val loaderVersionsFound = HashMap<String, String?>()
 		val outdatedLoaders = mutableSetOf<String>()
-		val components = multimcManifest["components"]?.asJsonArray ?: throw Exception("Invalid mmc-pack.json: no components key")
+		val components = multimcManifest["components"]?.asJsonArray ?: throw Exception(Msgs.umInvalidMultiMCNoComponent())
 		components.removeAll {
 			val component = it.asJsonObject
 
@@ -132,7 +132,7 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 			}
 
 			manifestPath.nioPath.writeText(gson.toJson(multimcManifest))
-			Log.info("Successfully updated mmc-pack.json based on version metadata")
+			Log.info(Msgs.umUpdatedMultiMC())
 
 			return LauncherStatus.SUCCESSFUL
 		}
