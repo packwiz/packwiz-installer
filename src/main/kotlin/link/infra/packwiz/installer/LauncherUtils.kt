@@ -47,6 +47,8 @@ class LauncherUtils internal constructor(private val opts: UpdateManager.Options
 		var manifestModified = false
 		val modLoaders = hashMapOf(
 			"net.minecraft" to "minecraft",
+			"org.lwjgl" to "lwjgl",
+			"org.lwjgl3" to "lwjgl3",
 			"net.minecraftforge" to "forge",
 			"net.neoforged" to "neoforge",
 			"net.fabricmc.fabric-loader" to "fabric",
